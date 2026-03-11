@@ -8,20 +8,24 @@ import { useCallback, useEffect, useState } from "react"
 import { getSkillDetail, pushSkill, disableSkill, enableSkill, deleteSkill, revealInFinder } from "@/lib/api"
 import type { SkillDetail, SkillMeta, Tool, PushResult } from "@/lib/types"
 
-export function useSkillDetail(skill: SkillMeta, allSkills: SkillMeta[]) {
+export function useSkillDetail(skill: SkillMeta) {
   const [detail, setDetail] = useState<SkillDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
-      const d = await getSkillDetail(skill.id, allSkills)
+      const d = await getSkillDetail(skill)
       setDetail(d)
     } catch (e) {
-      console.error("Failed to load skill detail:", e)
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error("Failed to load skill detail:", msg)
+      setError(msg)
     }
     setLoading(false)
-  }, [skill.id, allSkills])
+  }, [skill.id])
 
   useEffect(() => { load() }, [load])
 
@@ -47,5 +51,5 @@ export function useSkillDetail(skill: SkillMeta, allSkills: SkillMeta[]) {
     await revealInFinder(skill.file_path)
   }
 
-  return { detail, loading, push, disable, enable, remove, reveal, reload: load }
+  return { detail, loading, error, push, disable, enable, remove, reveal, reload: load }
 }

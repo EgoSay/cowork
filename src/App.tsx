@@ -17,7 +17,6 @@ type View =
 function App() {
   const [activeModule, setActiveModule] = useState("skills")
   const [view, setView] = useState<View>({ kind: "list" })
-  const [allSkills] = useState<SkillMeta[]>([])
 
   const handleSelectSkill = useCallback((skill: SkillMeta) => {
     setView({ kind: "detail", skill })
@@ -37,7 +36,6 @@ function App() {
           {view.kind === "detail" && (
             <SkillDetailPage
               skill={view.skill}
-              allSkills={allSkills}
               onBack={handleBack}
             />
           )}

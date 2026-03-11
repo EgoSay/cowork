@@ -16,10 +16,9 @@ export async function scanTool(tool: Tool): Promise<SkillMeta[]> {
 }
 
 export async function getSkillDetail(
-  id: string,
-  skills: SkillMeta[]
+  meta: SkillMeta
 ): Promise<SkillDetail> {
-  return invoke<SkillDetail>("get_skill_detail", { id, skills })
+  return invoke<SkillDetail>("get_skill_detail", { meta })
 }
 
 export async function pushSkill(

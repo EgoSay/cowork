@@ -23,13 +23,9 @@ pub async fn scan_tool(tool: Tool) -> Result<Vec<SkillMeta>, String> {
 }
 
 #[tauri::command]
-pub async fn get_skill_detail(id: String, skills: Vec<SkillMeta>) -> Result<SkillDetail, String> {
-    let meta = skills.into_iter()
-        .find(|s| s.id == id)
-        .ok_or_else(|| format!("Skill not found: {}", id))?;
-
+pub async fn get_skill_detail(meta: SkillMeta) -> Result<SkillDetail, String> {
     let content = std::fs::read_to_string(&meta.file_path)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to read {}: {}", meta.file_path, e))?;
 
     let config = AppConfig::load();
     let push_status = [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae]

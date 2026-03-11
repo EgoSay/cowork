@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 useSkillDetail, @/lib/types 的 SkillMeta, Tool, TOOL_LABELS
+ * [INPUT]: 依赖 useSkillDetail hook, @/lib/types 的 SkillMeta, Tool, TOOL_LABELS
  * [OUTPUT]: 对外提供 SkillDetailPage 组件（详情 + Push + Actions）
  * [POS]: skills pages 的详情视图，被 App.tsx 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -11,18 +11,28 @@ import { TOOL_LABELS } from "@/lib/types"
 
 interface SkillDetailPageProps {
   skill: SkillMeta
-  allSkills: SkillMeta[]
   onBack: () => void
 }
 
-export function SkillDetailPage({ skill, allSkills, onBack }: SkillDetailPageProps) {
-  const { detail, loading, push, disable, enable, remove, reveal } = useSkillDetail(skill, allSkills)
+export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
+  const { detail, loading, error, push, disable, enable, remove, reveal, reload } = useSkillDetail(skill)
   const [pushing, setPushing] = useState(false)
 
-  if (loading || !detail) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-text-muted text-sm">
         Loading...
+      </div>
+    )
+  }
+
+  if (error || !detail) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2">
+        <span className="text-sm text-danger">{error || "Failed to load skill detail"}</span>
+        <button onClick={onBack} className="text-xs text-text-secondary hover:text-text">
+          &larr; Back to Skills
+        </button>
       </div>
     )
   }
@@ -31,6 +41,7 @@ export function SkillDetailPage({ skill, allSkills, onBack }: SkillDetailPagePro
     setPushing(true)
     try {
       await push([tool])
+      await reload()
     } finally {
       setPushing(false)
     }
@@ -44,6 +55,7 @@ export function SkillDetailPage({ skill, allSkills, onBack }: SkillDetailPagePro
         .map((t) => t.tool)
       if (unpushed.length > 0) {
         await push(unpushed)
+        await reload()
       }
     } finally {
       setPushing(false)
