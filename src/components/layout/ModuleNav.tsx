@@ -27,8 +27,8 @@ export function ModuleNav({ active, onChange }: ModuleNavProps) {
             active === m.id
               ? "bg-bg-hover text-text"
               : "text-text-muted hover:text-text-secondary hover:bg-bg-hover/50"
-          } ${m.id !== "skills" ? "opacity-30 cursor-not-allowed" : ""}`}
-          disabled={m.id !== "skills"}
+          } ${m.id !== "skills" && m.id !== "config" ? "opacity-30 cursor-not-allowed" : ""}`}
+          disabled={m.id !== "skills" && m.id !== "config"}
           title={m.label}
         >
           {m.icon}

@@ -8,6 +8,7 @@ import { useState, useCallback } from "react"
 import { AppShell } from "@/components/layout/AppShell"
 import { SkillsPage } from "@/features/skills/pages/SkillsPage"
 import { SkillDetailPage } from "@/features/skills/pages/SkillDetailPage"
+import { ProvidersPage } from "@/features/providers/pages/ProvidersPage"
 import type { SkillMeta } from "@/lib/types"
 
 type View =
@@ -41,6 +42,7 @@ function App() {
           )}
         </>
       )}
+      {activeModule === "config" && <ProvidersPage />}
     </AppShell>
   )
 }
