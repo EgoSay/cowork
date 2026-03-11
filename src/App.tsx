@@ -1,7 +1,7 @@
 function App() {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-      <h1 style={{ color: "#fafafa" }}>CoWork</h1>
+    <div className="flex items-center justify-center h-screen bg-bg">
+      <h1 className="text-2xl font-bold text-text">CoWork</h1>
     </div>
   )
 }
