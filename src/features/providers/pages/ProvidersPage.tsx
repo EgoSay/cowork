@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 useProviders hook, ProviderCard, ProviderForm
+ * [INPUT]: 依赖 useProviders hook, ProviderCard, ProviderForm, @/lib/types
  * [OUTPUT]: 对外提供 ProvidersPage 组件
  * [POS]: Config 模块主页面，供应商管理
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -8,15 +8,15 @@ import { useState } from "react"
 import { useProviders } from "../hooks/useProviders"
 import { ProviderCard } from "../components/ProviderCard"
 import { ProviderForm } from "../components/ProviderForm"
-import type { ProviderProfile } from "@/lib/types"
+import type { ProviderProfile, Tool } from "@/lib/types"
 
-const TOOL_TABS = [
-  { key: "claude_code", label: "Claude Code" },
-  { key: "codex", label: "Codex" },
+const TOOL_TABS: { key: Tool; label: string; supported: boolean }[] = [
+  { key: "claude_code", label: "Claude Code", supported: true },
+  { key: "codex", label: "Codex", supported: false },
 ]
 
 export function ProvidersPage() {
-  const [toolKey, setToolKey] = useState("claude_code")
+  const [toolKey, setToolKey] = useState<Tool>("claude_code")
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<ProviderProfile | null>(null)
 
@@ -32,18 +32,21 @@ export function ProvidersPage() {
     removeProvider,
   } = useProviders(toolKey)
 
+  const currentTab = TOOL_TABS.find(t => t.key === toolKey)
+  const isSupported = currentTab?.supported ?? false
+
   const handleAdd = async (data: {
     id: string; name: string; baseUrl: string; apiKey: string
   }) => {
-    await addProvider(data.id, data.name, data.baseUrl, data.apiKey)
-    setShowForm(false)
+    const ok = await addProvider(data.id, data.name, data.baseUrl, data.apiKey)
+    if (ok) setShowForm(false)
   }
 
   const handleEdit = async (data: {
     id: string; name: string; baseUrl: string; apiKey: string
   }) => {
-    await updateProvider(data.id, data.name, data.baseUrl, data.apiKey)
-    setEditing(null)
+    const ok = await updateProvider(data.id, data.name, data.baseUrl, data.apiKey)
+    if (ok) setEditing(null)
   }
 
   const handleRemove = async (id: string) => {
@@ -56,12 +59,14 @@ export function ProvidersPage() {
       {/* 页面标题 */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-lg font-semibold text-text">API Providers</h1>
-        <button
-          onClick={() => { setShowForm(true); setEditing(null) }}
-          className="text-xs px-3 py-1.5 rounded-lg bg-text/5 text-text-secondary hover:bg-text/10 transition-colors"
-        >
-          + Add Provider
-        </button>
+        {isSupported && (
+          <button
+            onClick={() => { setShowForm(true); setEditing(null) }}
+            className="text-xs px-3 py-1.5 rounded-lg bg-text/5 text-text-secondary hover:bg-text/10 transition-colors"
+          >
+            + Add Provider
+          </button>
+        )}
       </div>
 
       {/* 工具标签页 */}
@@ -77,9 +82,17 @@ export function ProvidersPage() {
             }`}
           >
             {tab.label}
+            {!tab.supported && <span className="ml-1 text-text-muted opacity-50">(Soon)</span>}
           </button>
         ))}
       </div>
+
+      {/* 未支持提示 */}
+      {!isSupported && !loading && (
+        <p className="text-xs text-text-muted">
+          Provider switching for {currentTab?.label} is coming soon.
+        </p>
+      )}
 
       {/* 错误提示 */}
       {error && (
@@ -94,7 +107,7 @@ export function ProvidersPage() {
       )}
 
       {/* 供应商卡片网格 */}
-      {!loading && (
+      {!loading && isSupported && (
         <div className="grid grid-cols-2 gap-3">
           {providers.map((p) => (
             <ProviderCard
@@ -111,7 +124,7 @@ export function ProvidersPage() {
       )}
 
       {/* 添加/编辑表单 */}
-      {(showForm || editing) && (
+      {isSupported && (showForm || editing) && (
         <div className="mt-6 p-4 rounded-xl border border-border">
           <h2 className="text-sm font-medium text-text mb-3">
             {editing ? "Edit Provider" : "Add Custom Provider"}

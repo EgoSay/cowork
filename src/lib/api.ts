@@ -48,14 +48,14 @@ export async function getProviders(): Promise<ProvidersConfig> {
   return invoke<ProvidersConfig>("get_providers")
 }
 
-export async function switchProvider(toolKey: string, providerId: string): Promise<void> {
+export async function switchProvider(toolKey: Tool, providerId: string): Promise<void> {
   return invoke("switch_provider", { toolKey, providerId })
 }
 
 export async function addProvider(
   id: string,
   name: string,
-  tool: string,
+  tool: Tool,
   baseUrl: string,
   apiKey: string
 ): Promise<void> {

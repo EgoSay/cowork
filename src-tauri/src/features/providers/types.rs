@@ -1,9 +1,10 @@
 /**
- * [INPUT]: 依赖 serde 序列化
+ * [INPUT]: 依赖 serde 序列化, crate::types::Tool
  * [OUTPUT]: 对外提供 ProviderType, ProviderProfile, ProvidersConfig
  * [POS]: providers 功能的数据类型，被 store/writer/commands 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+use crate::types::Tool;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -18,7 +19,7 @@ pub enum ProviderType {
 pub struct ProviderProfile {
     pub id: String,
     pub name: String,
-    pub tool: String,
+    pub tool: Tool,
     pub provider_type: ProviderType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
@@ -29,7 +30,7 @@ pub struct ProviderProfile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProvidersConfig {
     pub providers: Vec<ProviderProfile>,
-    pub active: HashMap<String, String>,
+    pub active: HashMap<Tool, String>,
 }
 
 #[cfg(test)]
@@ -49,13 +50,14 @@ mod tests {
         let p = ProviderProfile {
             id: "test".into(),
             name: "Test".into(),
-            tool: "claude_code".into(),
+            tool: Tool::ClaudeCode,
             provider_type: ProviderType::Custom,
             base_url: Some("https://example.com".into()),
             api_key: Some("sk-test".into()),
         };
         let json = serde_json::to_string(&p).unwrap();
         assert!(json.contains("\"custom\""));
+        assert!(json.contains("\"claude_code\""));
         assert!(json.contains("https://example.com"));
     }
 
@@ -64,7 +66,7 @@ mod tests {
         let p = ProviderProfile {
             id: "official".into(),
             name: "Official".into(),
-            tool: "claude_code".into(),
+            tool: Tool::ClaudeCode,
             provider_type: ProviderType::Official,
             base_url: None,
             api_key: None,
@@ -81,17 +83,17 @@ mod tests {
                 ProviderProfile {
                     id: "official".into(),
                     name: "Anthropic Official".into(),
-                    tool: "claude_code".into(),
+                    tool: Tool::ClaudeCode,
                     provider_type: ProviderType::Official,
                     base_url: None,
                     api_key: None,
                 },
             ],
-            active: HashMap::from([("claude_code".into(), "official".into())]),
+            active: HashMap::from([(Tool::ClaudeCode, "official".into())]),
         };
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let parsed: ProvidersConfig = toml::from_str(&toml_str).unwrap();
         assert_eq!(parsed.providers.len(), 1);
-        assert_eq!(parsed.active["claude_code"], "official");
+        assert_eq!(parsed.active[&Tool::ClaudeCode], "official");
     }
 }

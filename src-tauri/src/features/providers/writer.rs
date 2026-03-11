@@ -6,15 +6,16 @@
  */
 use super::types::{ProviderProfile, ProviderType};
 use crate::shared::fs_utils::expand_tilde;
+use crate::types::Tool;
 use serde_json::Value;
 use std::path::PathBuf;
 
 /// 将供应商配置应用到目标工具的配置文件
 pub fn apply_provider(provider: &ProviderProfile) -> Result<(), String> {
-    match provider.tool.as_str() {
-        "claude_code" => apply_claude_code(provider),
-        "codex" => Err("Codex provider switching not yet supported".into()),
-        _ => Err(format!("Unsupported tool: {}", provider.tool)),
+    match provider.tool {
+        Tool::ClaudeCode => apply_claude_code(provider),
+        Tool::Codex => Err("Codex provider switching not yet supported".into()),
+        _ => Err(format!("Unsupported tool: {:?}", provider.tool)),
     }
 }
 

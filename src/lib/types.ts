@@ -54,7 +54,7 @@ export type ProviderType = "official" | "custom"
 export interface ProviderProfile {
   id: string
   name: string
-  tool: string
+  tool: Tool
   provider_type: ProviderType
   base_url?: string
   api_key?: string

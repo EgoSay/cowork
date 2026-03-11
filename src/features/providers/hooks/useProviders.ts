@@ -12,7 +12,7 @@ import {
   updateProvider as apiUpdateProvider,
   removeProvider as apiRemoveProvider,
 } from "@/lib/api"
-import type { ProvidersConfig } from "@/lib/types"
+import type { ProvidersConfig, Tool } from "@/lib/types"
 
 interface State {
   config: ProvidersConfig | null
@@ -46,7 +46,7 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-export function useProviders(toolKey: string = "claude_code") {
+export function useProviders(toolKey: Tool = "claude_code") {
   const [state, dispatch] = useReducer(reducer, {
     config: null,
     loading: true,
@@ -79,32 +79,38 @@ export function useProviders(toolKey: string = "claude_code") {
 
   const doAdd = useCallback(async (
     id: string, name: string, baseUrl: string, apiKey: string
-  ) => {
+  ): Promise<boolean> => {
     try {
       await apiAddProvider(id, name, toolKey, baseUrl, apiKey)
       await load()
+      return true
     } catch (e) {
       dispatch({ type: "LOAD_ERR", error: String(e) })
+      return false
     }
   }, [toolKey, load])
 
   const doUpdate = useCallback(async (
     id: string, name?: string, baseUrl?: string, apiKey?: string
-  ) => {
+  ): Promise<boolean> => {
     try {
       await apiUpdateProvider(id, name, baseUrl, apiKey)
       await load()
+      return true
     } catch (e) {
       dispatch({ type: "LOAD_ERR", error: String(e) })
+      return false
     }
   }, [load])
 
-  const doRemove = useCallback(async (id: string) => {
+  const doRemove = useCallback(async (id: string): Promise<boolean> => {
     try {
       await apiRemoveProvider(id)
       await load()
+      return true
     } catch (e) {
       dispatch({ type: "LOAD_ERR", error: String(e) })
+      return false
     }
   }, [load])
 

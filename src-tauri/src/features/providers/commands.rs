@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 types, writer, crate::ProviderLock
- * [OUTPUT]: 对外提供 Tauri IPC 命令 (list/switch/add/update/remove)
+ * [INPUT]: 依赖 types, writer, crate::ProviderLock, crate::types::Tool
+ * [OUTPUT]: 对外提供 Tauri IPC 命令 (list/switch/add/update/remove/read_env)
  * [POS]: providers 功能的 Tauri IPC 接口层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::types::{ProviderProfile, ProviderType, ProvidersConfig};
 use super::writer;
+use crate::types::Tool;
 use crate::ProviderLock;
 use tauri::State;
 
@@ -18,7 +19,7 @@ pub async fn get_providers(lock: State<'_, ProviderLock>) -> Result<ProvidersCon
 
 /// 切换指定工具的激活供应商
 #[tauri::command]
-pub async fn switch_provider(lock: State<'_, ProviderLock>, tool_key: String, provider_id: String) -> Result<(), String> {
+pub async fn switch_provider(lock: State<'_, ProviderLock>, tool_key: Tool, provider_id: String) -> Result<(), String> {
     let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     let mut config = ProvidersConfig::load();
     config.set_active(&tool_key, &provider_id)?;
@@ -37,7 +38,7 @@ pub async fn add_provider(
     lock: State<'_, ProviderLock>,
     id: String,
     name: String,
-    tool: String,
+    tool: Tool,
     base_url: String,
     api_key: String,
 ) -> Result<(), String> {
@@ -101,6 +102,7 @@ pub async fn remove_provider(lock: State<'_, ProviderLock>, id: String) -> Resul
 
 /// 读取 Claude Code 当前 env 配置状态
 #[tauri::command]
-pub async fn read_claude_env() -> Result<(Option<String>, Option<String>), String> {
+pub async fn read_claude_env(lock: State<'_, ProviderLock>) -> Result<(Option<String>, Option<String>), String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     writer::read_claude_code_env()
 }
