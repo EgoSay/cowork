@@ -10,6 +10,7 @@ mod shared;
 mod types;
 
 use features::skills::commands;
+use features::providers::commands as provider_commands;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -27,6 +28,12 @@ pub fn run() {
             commands::reveal_in_finder,
             commands::get_tool_configs,
             commands::update_tool_config,
+            provider_commands::get_providers,
+            provider_commands::switch_provider,
+            provider_commands::add_provider,
+            provider_commands::update_provider,
+            provider_commands::remove_provider,
+            provider_commands::read_claude_env,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CoWork");
