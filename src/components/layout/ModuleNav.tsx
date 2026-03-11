@@ -10,30 +10,36 @@ interface ModuleNavProps {
 }
 
 const modules = [
-  { id: "skills", label: "Skills", icon: "S" },
-  { id: "projects", label: "Projects", icon: "P" },
-  { id: "usage", label: "Usage", icon: "U" },
-  { id: "config", label: "Config", icon: "C" },
+  { id: "skills", label: "Skills", icon: "\u2726" },
+  { id: "projects", label: "Projects", icon: "\u25A1" },
+  { id: "usage", label: "Usage", icon: "\u2261" },
+  { id: "config", label: "Config", icon: "\u2699" },
 ]
 
 export function ModuleNav({ active, onChange }: ModuleNavProps) {
   return (
-    <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border">
-      {modules.map((m) => (
-        <button
-          key={m.id}
-          onClick={() => onChange(m.id)}
-          className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-colors ${
-            active === m.id
-              ? "bg-bg-hover text-text"
-              : "text-text-muted hover:text-text-secondary hover:bg-bg-hover/50"
-          } ${m.id !== "skills" ? "opacity-30 cursor-not-allowed" : ""}`}
-          disabled={m.id !== "skills"}
-          title={m.label}
-        >
-          {m.icon}
-        </button>
-      ))}
+    <div className="flex items-center gap-1 px-4 py-2 border-b border-border">
+      {modules.map((m) => {
+        const enabled = m.id === "skills" || m.id === "config"
+        const isActive = active === m.id
+        return (
+          <button
+            key={m.id}
+            onClick={() => onChange(m.id)}
+            className={`px-4 py-2 rounded-lg text-sm tracking-wide transition-colors ${
+              isActive
+                ? "bg-text/10 text-text font-semibold"
+                : enabled
+                  ? "text-text-secondary font-medium hover:text-text hover:bg-text/5"
+                  : "text-text-muted/30 font-medium cursor-not-allowed"
+            }`}
+            style={{ fontFamily: '"SF Pro Display", "SF Pro", -apple-system, "Inter", sans-serif' }}
+            disabled={!enabled}
+          >
+            <span className="opacity-60 mr-1.5">{m.icon}</span>{m.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
