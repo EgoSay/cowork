@@ -73,10 +73,6 @@ impl ProvidersConfig {
         Ok(())
     }
 
-    pub fn providers_for_tool(&self, tool: &Tool) -> Vec<&ProviderProfile> {
-        self.providers.iter().filter(|p| &p.tool == tool).collect()
-    }
-
     pub fn active_provider(&self, tool: &Tool) -> Option<&ProviderProfile> {
         let active_id = self.active.get(tool)?;
         self.providers.iter().find(|p| &p.id == active_id && &p.tool == tool)
@@ -143,14 +139,6 @@ mod tests {
         assert_eq!(config.providers.len(), 2);
         assert_eq!(config.active[&Tool::ClaudeCode], "claude-official");
         assert_eq!(config.active[&Tool::Codex], "codex-official");
-    }
-
-    #[test]
-    fn providers_for_tool_filters_correctly() {
-        let config = ProvidersConfig::default();
-        let claude = config.providers_for_tool(&Tool::ClaudeCode);
-        assert_eq!(claude.len(), 1);
-        assert_eq!(claude[0].name, "Anthropic Official");
     }
 
     #[test]
