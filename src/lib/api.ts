@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { invoke } from "@tauri-apps/api/core"
-import type { SkillMeta, SkillDetail, PushResult, Tool } from "./types"
+import type { SkillMeta, SkillDetail, PushResult, Tool, UsageData } from "./types"
 
 export async function scanAllTools(): Promise<SkillMeta[]> {
   return invoke<SkillMeta[]>("scan_all_tools")
@@ -42,4 +42,8 @@ export async function deleteSkill(filePath: string): Promise<void> {
 
 export async function revealInFinder(path: string): Promise<void> {
   return invoke("reveal_in_finder", { path })
+}
+
+export async function getUsageData(): Promise<UsageData> {
+  return invoke<UsageData>("get_usage_data")
 }
