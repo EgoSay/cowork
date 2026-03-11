@@ -1,21 +1,25 @@
 /**
- * [INPUT]: 依赖 types, writer
+ * [INPUT]: 依赖 types, writer, crate::ProviderLock
  * [OUTPUT]: 对外提供 Tauri IPC 命令 (list/switch/add/update/remove)
  * [POS]: providers 功能的 Tauri IPC 接口层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::types::{ProviderProfile, ProviderType, ProvidersConfig};
 use super::writer;
+use crate::ProviderLock;
+use tauri::State;
 
 /// 获取所有供应商配置（含 active 状态）
 #[tauri::command]
-pub async fn get_providers() -> Result<ProvidersConfig, String> {
+pub async fn get_providers(lock: State<'_, ProviderLock>) -> Result<ProvidersConfig, String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     Ok(ProvidersConfig::load())
 }
 
 /// 切换指定工具的激活供应商
 #[tauri::command]
-pub async fn switch_provider(tool_key: String, provider_id: String) -> Result<(), String> {
+pub async fn switch_provider(lock: State<'_, ProviderLock>, tool_key: String, provider_id: String) -> Result<(), String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     let mut config = ProvidersConfig::load();
     config.set_active(&tool_key, &provider_id)?;
 
@@ -30,12 +34,14 @@ pub async fn switch_provider(tool_key: String, provider_id: String) -> Result<()
 /// 添加自定义供应商
 #[tauri::command]
 pub async fn add_provider(
+    lock: State<'_, ProviderLock>,
     id: String,
     name: String,
     tool: String,
     base_url: String,
     api_key: String,
 ) -> Result<(), String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     let mut config = ProvidersConfig::load();
     config.add_provider(ProviderProfile {
         id,
@@ -51,11 +57,13 @@ pub async fn add_provider(
 /// 更新供应商信息
 #[tauri::command]
 pub async fn update_provider(
+    lock: State<'_, ProviderLock>,
     id: String,
     name: Option<String>,
     base_url: Option<String>,
     api_key: Option<String>,
 ) -> Result<(), String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     let mut config = ProvidersConfig::load();
     config.update_provider(&id, name, base_url, api_key)?;
 
@@ -71,7 +79,8 @@ pub async fn update_provider(
 
 /// 删除供应商
 #[tauri::command]
-pub async fn remove_provider(id: String) -> Result<(), String> {
+pub async fn remove_provider(lock: State<'_, ProviderLock>, id: String) -> Result<(), String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
     let mut config = ProvidersConfig::load();
 
     let provider = config.find_provider(&id)

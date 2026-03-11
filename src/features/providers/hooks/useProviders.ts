@@ -80,20 +80,32 @@ export function useProviders(toolKey: string = "claude_code") {
   const doAdd = useCallback(async (
     id: string, name: string, baseUrl: string, apiKey: string
   ) => {
-    await apiAddProvider(id, name, toolKey, baseUrl, apiKey)
-    await load()
+    try {
+      await apiAddProvider(id, name, toolKey, baseUrl, apiKey)
+      await load()
+    } catch (e) {
+      dispatch({ type: "LOAD_ERR", error: String(e) })
+    }
   }, [toolKey, load])
 
   const doUpdate = useCallback(async (
     id: string, name?: string, baseUrl?: string, apiKey?: string
   ) => {
-    await apiUpdateProvider(id, name, baseUrl, apiKey)
-    await load()
+    try {
+      await apiUpdateProvider(id, name, baseUrl, apiKey)
+      await load()
+    } catch (e) {
+      dispatch({ type: "LOAD_ERR", error: String(e) })
+    }
   }, [load])
 
   const doRemove = useCallback(async (id: string) => {
-    await apiRemoveProvider(id)
-    await load()
+    try {
+      await apiRemoveProvider(id)
+      await load()
+    } catch (e) {
+      dispatch({ type: "LOAD_ERR", error: String(e) })
+    }
   }, [load])
 
   const providers = state.config?.providers.filter(p => p.tool === toolKey) ?? []

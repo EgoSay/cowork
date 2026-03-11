@@ -47,6 +47,7 @@ export function ProvidersPage() {
   }
 
   const handleRemove = async (id: string) => {
+    if (!window.confirm("Remove this provider? Active provider will revert to official.")) return
     await removeProvider(id)
   }
 
