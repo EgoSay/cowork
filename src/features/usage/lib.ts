@@ -1,9 +1,11 @@
 /**
- * [INPUT]: 无外部依赖
+ * [INPUT]: 依赖 @/lib/types::DailyRecord
  * [OUTPUT]: 对外提供 TimeRange, formatTokens, localDateString, cutoffDate, recordTotal
  * [POS]: usage 模块共享工具，被 hooks 和 components 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+import type { DailyRecord } from "@/lib/types"
+
 export type TimeRange = "today" | "week" | "month"
 
 export function formatTokens(n: number): string {
@@ -29,8 +31,6 @@ export function cutoffDate(range: TimeRange): string {
 }
 
 // ── DailyRecord 总 token（统一口径） ────────────────────
-
-import type { DailyRecord } from "@/lib/types"
 
 export function recordTotal(r: DailyRecord): number {
   return r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens

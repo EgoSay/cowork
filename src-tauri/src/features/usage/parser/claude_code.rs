@@ -141,10 +141,10 @@ fn parse_from_dir(base: &Path) -> Vec<DailyRecord> {
 
     for entry in files.flatten() {
         // 跳过 31 天前的文件
-        let dominated_by_mtime = entry.metadata()
+        let recent = entry.metadata()
             .and_then(|m| m.modified())
             .map_or(false, |mtime| mtime >= cutoff);
-        if !dominated_by_mtime { continue; }
+        if !recent { continue; }
 
         let content = match std::fs::read_to_string(&entry) {
             Ok(c) => c,

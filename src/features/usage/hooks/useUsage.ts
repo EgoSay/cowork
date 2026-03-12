@@ -74,9 +74,8 @@ export function useUsage() {
 
   useEffect(() => { load() }, [load])
 
-  const cutoff = cutoffDate(state.timeRange)
-
   // ── 过滤后的记录 ────────────────────────────────────
+  const cutoff = useMemo(() => cutoffDate(state.timeRange), [state.timeRange])
   const filtered = useMemo(() => {
     if (!state.data) return []
     return state.data.records.filter(r => r.date >= cutoff)

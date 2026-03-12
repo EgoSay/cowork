@@ -4,7 +4,7 @@
 Session JSONL parsers with unified token accounting.
 
 ## Members
-- `mod.rs`: parse_all() coordinator, merges Claude + Codex records; shared timestamp_to_date/timestamp_to_local_date
+- `mod.rs`: parse_all() coordinator, merges Claude + Codex records; shared timestamp_to_date
 - `claude_code.rs`: scans ~/.claude/projects/**/*.jsonl (含 subagents, mtime < 31d), dedup by message.id, sums per (date, model)
 - `codex.rs`: glob+mtime 扫描 ~/.codex/sessions/**/*.jsonl, incremental last_token_usage + event timestamp 做日归属
 
