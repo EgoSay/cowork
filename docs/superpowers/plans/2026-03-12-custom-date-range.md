@@ -20,26 +20,32 @@
 
 4. **State = user intent, derived = clamped reality.** `effectiveCustom = useMemo(clampToWindow(raw, scanWindow))`. When `scanWindow` shifts after refresh, memo auto-recomputes. Zero side effects.
 
-5. **`clampToWindow(from, to, window)`** is the single normalization point. Handles: empty → window.max, swap, out-of-window → clamp, post-clamp re-inversion → collapse.
+5. **`clampToWindow(from, to, window)`** is the single normalization point. Handles: empty → window.max, swap, out-of-window → 双向 clamp (floor + ceiling), post-clamp re-inversion → collapse。双向 clamp 保证结果永远在 [win.min, win.max] 内。
 
 6. **Custom click behavior**: `""` sentinel → inherit preset (clamped). Non-empty → restore (derive-time clamp handles window shift).
+
+7. **Loading 期间双层保护.** `scanWindow` 在 data=null 时是假值 (today/today)。两层防线：(1) hook 层：`switchToCustom()` / `setCustomRange()` 在 `!state.data` 时早退，不写假值到 raw state；(2) UI 层：`TimeRangeTab` 接受 `disabled` prop，`loading` 时整体不可交互。Belt + suspenders。
+
+8. **`LOOKBACK_DAYS` 单一真相源.** 常量定义在 `parser/mod.rs`，子模块 `claude_code.rs` 和 `codex.rs` 通过 `super::LOOKBACK_DAYS` 引用。消除三处独立魔数，任何窗口变更只需改一处。
 
 ## File Structure
 
 | Action | File | Responsibility |
 |--------|------|----------------|
 | Modify | `src-tauri/src/features/usage/types.rs` | Add `scanned_from` to UsageData |
-| Modify | `src-tauri/src/features/usage/parser/mod.rs` | `scan_window_dates()` helper, clip events, 2 tests |
-| Modify | `src-tauri/src/features/usage/parser/CLAUDE.md` | Update L2 (scan window + clip 职责) |
+| Modify | `src-tauri/src/features/usage/parser/mod.rs` | `LOOKBACK_DAYS` 单一真相源, `scan_window_dates()` helper, clip events, 2 tests |
+| Modify | `src-tauri/src/features/usage/parser/claude_code.rs` | 移除本地 LOOKBACK_DAYS, 改用 `super::LOOKBACK_DAYS` |
+| Modify | `src-tauri/src/features/usage/parser/codex.rs` | 移除本地 LOOKBACK_SECS, 改用 `super::LOOKBACK_DAYS` |
+| Modify | `src-tauri/src/features/usage/parser/CLAUDE.md` | Update L2 (scan window + clip 职责 + 单一常量) |
 | Modify | `src/lib/types.ts` | Add `scanned_from` to TS UsageData |
 | Modify | `src/features/usage/lib.ts` | `PresetRange`, `"custom"`, `dateRange`, `clampToWindow`, `ScanWindow` |
 | Modify | `src/features/usage/hooks/useUsage.ts` | `effectiveCustom` memo, `setTimeRange(PresetRange)`, `switchToCustom` |
-| Modify | `src/features/usage/components/TimeRangeTab.tsx` | Custom pill + date inputs, `onChange(PresetRange)` |
-| Modify | `src/features/usage/pages/UsagePage.tsx` | Wire new props |
+| Modify | `src/features/usage/components/TimeRangeTab.tsx` | Custom pill + date inputs, `onChange(PresetRange)`, `disabled` guard |
+| Modify | `src/features/usage/pages/UsagePage.tsx` | Wire new props (含 loading → disabled) |
 | Modify | `src/features/usage/CLAUDE.md` | Update L2 |
 | Modify | `src-tauri/src/features/usage/CLAUDE.md` | Update L2 |
 
-**Total: 10 files modified, 0 files created**
+**Total: 12 files modified, 0 files created**
 
 ---
 
@@ -50,6 +56,8 @@
 **Files:**
 - Modify: `src-tauri/src/features/usage/types.rs:22-27`
 - Modify: `src-tauri/src/features/usage/parser/mod.rs` (full rewrite)
+- Modify: `src-tauri/src/features/usage/parser/claude_code.rs:15,133`
+- Modify: `src-tauri/src/features/usage/parser/codex.rs:55,136`
 - Modify: `src-tauri/src/features/usage/parser/CLAUDE.md`
 - Modify: `src/lib/types.ts:62-65`
 
@@ -72,13 +80,13 @@ Update L3 OUTPUT:
  * [OUTPUT]: 对外提供 DailyRecord, UsageData (含 scanned_from/scanned_until 扫描窗口)
 ```
 
-- [ ] **Step 2: Replace full `parser/mod.rs` with scan_window_dates helper + clip + tests**
+- [ ] **Step 2: Replace full `parser/mod.rs` with LOOKBACK_DAYS 单一真相源 + scan_window_dates + clip + tests**
 
 ```rust
 /**
  * [INPUT]: 依赖 claude_code, codex 子模块, chrono (含 Duration), super::types
- * [OUTPUT]: 对外提供 parse_all(), scan_window_dates(), timestamp_to_date()
- * [POS]: parser/ 入口，定义扫描窗口，协调解析，裁剪窗口外事件
+ * [OUTPUT]: 对外提供 LOOKBACK_DAYS, parse_all(), scan_window_dates(), timestamp_to_date()
+ * [POS]: parser/ 入口，定义扫描窗口常量（单一真相源），协调解析，裁剪窗口外事件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 mod claude_code;
@@ -87,9 +95,9 @@ mod codex;
 use super::types::{DailyRecord, UsageData};
 use chrono::{DateTime, Duration, Local, TimeZone};
 
-// ── 扫描窗口常量 ────────────────────────────────────────
-// 必须与 claude_code::LOOKBACK_DAYS / codex::LOOKBACK_SECS 保持一致
-const LOOKBACK_DAYS: i64 = 31;
+// ── 扫描窗口常量（单一真相源）────────────────────────────
+// 子模块 claude_code / codex 通过 super::LOOKBACK_DAYS 引用
+pub(crate) const LOOKBACK_DAYS: u64 = 31;
 
 // ── 共享：时间戳 → 本地日期 ────────────────────────────
 
@@ -114,7 +122,8 @@ pub(crate) fn scan_window_dates<Tz: TimeZone>(now: &DateTime<Tz>) -> (String, St
 where
     Tz::Offset: std::fmt::Display,
 {
-    let from = (*now - Duration::days(LOOKBACK_DAYS - 1))
+    // DateTime<Tz> 在 chrono 0.4 是 Clone 不是 Copy，不能 *now
+    let from = (now.clone() - Duration::days(LOOKBACK_DAYS as i64 - 1))
         .format("%Y-%m-%d").to_string();
     let until = now.format("%Y-%m-%d").to_string();
     (from, until)
@@ -126,7 +135,7 @@ pub fn parse_all() -> UsageData {
 
     let mut records = claude_code::parse();
     records.extend(codex::parse());
-    // 裁掉扫描窗口外的事件日期，保证 UI 和数据完全同构
+    // SAFETY: retain 必须保留 — 由 retain_clips_events_outside_window 测试锁定
     records.retain(|r| r.date >= scanned_from && r.date <= scanned_until);
 
     UsageData { records, scanned_from, scanned_until }
@@ -178,9 +187,35 @@ mod tests {
 }
 ```
 
-Key: `scan_window_dates()` is generic over timezone (testable with `FixedOffset`). 2 tests: 30d range math + retain clipping.
+- [ ] **Step 3: Migrate claude_code.rs to use `super::LOOKBACK_DAYS`**
 
-- [ ] **Step 3: Add `scanned_from` to TS UsageData**
+In `src-tauri/src/features/usage/parser/claude_code.rs`:
+
+Remove line 15:
+```rust
+// DELETE: const LOOKBACK_DAYS: u64 = 31;
+```
+
+Replace line 133 (`LOOKBACK_DAYS * 86400`):
+```rust
+        - std::time::Duration::from_secs(super::LOOKBACK_DAYS * 86_400);
+```
+
+- [ ] **Step 4: Migrate codex.rs to use `super::LOOKBACK_DAYS`**
+
+In `src-tauri/src/features/usage/parser/codex.rs`:
+
+Remove line 55:
+```rust
+// DELETE: const LOOKBACK_SECS: u64 = 31 * 86400;
+```
+
+Replace line 136 (`LOOKBACK_SECS`):
+```rust
+        - std::time::Duration::from_secs(super::LOOKBACK_DAYS * 86_400);
+```
+
+- [ ] **Step 5: Add `scanned_from` to TS UsageData**
 
 In `src/lib/types.ts`, replace lines 62-65:
 
@@ -192,18 +227,18 @@ export interface UsageData {
 }
 ```
 
-- [ ] **Step 4: Update parser/CLAUDE.md**
+- [ ] **Step 6: Update parser/CLAUDE.md**
 
 ```markdown
 # features/usage/parser/
 > L2 | Parent: src-tauri/src/features/usage/
 
-Session JSONL parsers with unified token accounting.
+Session JSONL parsers with unified token accounting. LOOKBACK_DAYS 定义在 mod.rs（单一真相源）。
 
 ## Members
-- `mod.rs`: parse_all() coordinator — defines scan window via scan_window_dates(), merges Claude + Codex records, clips events outside [scanned_from, scanned_until]; shared timestamp_to_date
-- `claude_code.rs`: scans ~/.claude/projects/**/*.jsonl (含 subagents, mtime < 31d), dedup by message.id, sums per (date, model)
-- `codex.rs`: glob+mtime 扫描 ~/.codex/sessions/**/*.jsonl, incremental last_token_usage + event timestamp 做日归属
+- `mod.rs`: LOOKBACK_DAYS 常量（单一真相源）, parse_all() coordinator — defines scan window via scan_window_dates(), merges Claude + Codex records, clips events outside [scanned_from, scanned_until]; shared timestamp_to_date
+- `claude_code.rs`: scans ~/.claude/projects/**/*.jsonl (含 subagents, mtime via super::LOOKBACK_DAYS), dedup by message.id, sums per (date, model)
+- `codex.rs`: glob+mtime 扫描 ~/.codex/sessions/**/*.jsonl (mtime via super::LOOKBACK_DAYS), incremental last_token_usage + event timestamp 做日归属
 
 ## Token Accounting
 Claude: 4 independent fields from API → direct mapping
@@ -212,20 +247,20 @@ Codex: cached_input ⊂ input → subtract to normalize: input = api.input - api
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **Step 7: Verify**
 
 ```bash
-cd src-tauri && PATH="$HOME/.cargo/bin:$PATH" cargo test
 pnpm typecheck
+(cd src-tauri && PATH="$HOME/.cargo/bin:$PATH" cargo test)
 ```
 
-Expected: All Rust tests pass (now 58: 56 existing + 2 new). TypeScript clean.
+Expected: TypeScript clean. All Rust tests pass (now 58: 56 existing + 2 new).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src-tauri/src/features/usage/types.rs src-tauri/src/features/usage/parser/mod.rs src-tauri/src/features/usage/parser/CLAUDE.md src/lib/types.ts
-git commit -m "feat(usage): add scanned_from, scan_window_dates helper, clip events outside window"
+git add src-tauri/src/features/usage/types.rs src-tauri/src/features/usage/parser/mod.rs src-tauri/src/features/usage/parser/claude_code.rs src-tauri/src/features/usage/parser/codex.rs src-tauri/src/features/usage/parser/CLAUDE.md src/lib/types.ts
+git commit -m "feat(usage): LOOKBACK_DAYS single source, scanned_from, scan_window_dates, clip events"
 ```
 
 ---
@@ -313,7 +348,7 @@ export function dateRange(
 }
 
 // ── 扫描窗口 clamp：所有写入 customFrom/To 的路径必经 ────
-// 处理：空值 → window.max, 倒置 → swap, 越界 → clamp
+// 处理：空值 → window.max, 倒置 → swap, 越界 → 双向 clamp
 
 export function clampToWindow(
   from: string,
@@ -324,8 +359,9 @@ export function clampToWindow(
   let t = to || win.max
   if (f > t) [f, t] = [t, f]
   if (f < win.min) f = win.min
+  if (t < win.min) t = win.min     // 两端都早于窗口 → 坍缩到 win.min
   if (t > win.max) t = win.max
-  if (f > t) f = t   // window 可能是单点，clamp 后可能再次倒置
+  if (f > t) f = t                 // window 可能是单点，clamp 后可能再次倒置
   return { from: f, to: t }
 }
 
@@ -466,7 +502,7 @@ export function useUsage() {
   // ── 统一双边界过滤 ─────────────────────────────────
   const bounds = useMemo(
     () => dateRange(state.timeRange, effectiveCustom.from, effectiveCustom.to),
-    [state.timeRange, effectiveCustom],
+    [state.timeRange, effectiveCustom.from, effectiveCustom.to],
   )
   const filtered = useMemo(() => {
     if (!state.data) return []
@@ -514,7 +550,9 @@ export function useUsage() {
   }, [filtered])
 
   // ── Custom 切换：首次继承 preset，之后恢复 ─────────
+  // data=null 时 scanWindow 是假值，早退防止错误初始化
   const switchToCustom = useCallback(() => {
+    if (!state.data) return
     if (state.customFrom === "") {
       const current = dateRange(state.timeRange)
       const clamped = clampToWindow(current.from, current.to, scanWindow)
@@ -522,13 +560,15 @@ export function useUsage() {
     } else {
       dispatch({ type: "SET_RANGE", range: "custom" })
     }
-  }, [state.timeRange, state.customFrom, scanWindow])
+  }, [state.data, state.timeRange, state.customFrom, scanWindow])
 
   // ── 日期输入变更 ──────────────────────────────────
+  // data=null 时同理早退
   const setCustomRange = useCallback((from: string, to: string) => {
+    if (!state.data) return
     const clamped = clampToWindow(from, to, scanWindow)
     dispatch({ type: "SET_CUSTOM", from: clamped.from, to: clamped.to })
-  }, [scanWindow])
+  }, [state.data, scanWindow])
 
   return {
     timeRange: state.timeRange,
@@ -584,7 +624,7 @@ git commit -m "feat(usage): effectiveCustom memo, setTimeRange(PresetRange) type
 ```typescript
 /**
  * [INPUT]: 依赖 ../lib::PresetRange, ../lib::TimeRange, ../lib::ScanWindow
- * [OUTPUT]: 对外提供 TimeRangeTab 组件（含 Custom 日期选择器，扫描窗口边界）
+ * [OUTPUT]: 对外提供 TimeRangeTab 组件（含 Custom 日期选择器，扫描窗口边界，loading 禁用）
  * [POS]: usage components 的时间范围选择器
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -595,9 +635,10 @@ interface TimeRangeTabProps {
   customFrom: string
   customTo: string
   scanWindow: ScanWindow
-  onChange: (range: PresetRange) => void     // 只接受 preset
+  disabled?: boolean                          // loading 时禁用，防止假 scanWindow 初始化 custom
+  onChange: (range: PresetRange) => void       // 只接受 preset
   onCustomChange: (from: string, to: string) => void
-  onSwitchCustom: () => void                 // custom 的唯一入口
+  onSwitchCustom: () => void                   // custom 的唯一入口
 }
 
 const presets: { id: PresetRange; label: string }[] = [
@@ -607,14 +648,15 @@ const presets: { id: PresetRange; label: string }[] = [
 ]
 
 export function TimeRangeTab({
-  active, customFrom, customTo, scanWindow,
+  active, customFrom, customTo, scanWindow, disabled,
   onChange, onCustomChange, onSwitchCustom,
 }: TimeRangeTabProps) {
   return (
-    <div className="flex items-center gap-1">
+    <div className={`flex items-center gap-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
       {presets.map((r) => (
         <button
           key={r.id}
+          disabled={disabled}
           onClick={() => onChange(r.id)}
           className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
             active === r.id
@@ -628,6 +670,7 @@ export function TimeRangeTab({
 
       {/* Custom pill: 走 switchToCustom (首次继承 preset / 之后恢复) */}
       <button
+        disabled={disabled}
         onClick={onSwitchCustom}
         className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
           active === "custom"
@@ -643,6 +686,7 @@ export function TimeRangeTab({
         <div className="flex items-center gap-1 ml-2">
           <input
             type="date"
+            disabled={disabled}
             value={customFrom}
             min={scanWindow.min}
             max={customTo}
@@ -652,6 +696,7 @@ export function TimeRangeTab({
           <span className="text-text-muted text-xs">–</span>
           <input
             type="date"
+            disabled={disabled}
             value={customTo}
             min={customFrom}
             max={scanWindow.max}
@@ -665,7 +710,7 @@ export function TimeRangeTab({
 }
 ```
 
-Key: `onChange: (range: PresetRange) => void` — TypeScript prevents passing `"custom"`.
+Key: `onChange: (range: PresetRange) => void` — TypeScript prevents passing `"custom"`. `disabled` 防止 loading 期间用假 scanWindow 初始化 custom。
 
 - [ ] **Step 2: Replace UsagePage**
 
@@ -699,6 +744,7 @@ export function UsagePage() {
           customFrom={customFrom}
           customTo={customTo}
           scanWindow={scanWindow}
+          disabled={loading}
           onChange={setTimeRange}
           onCustomChange={setCustomRange}
           onSwitchCustom={switchToCustom}
@@ -770,7 +816,7 @@ Token usage monitoring dashboard. Unified 4-field accounting (input/output/cache
 - `lib.ts`: PresetRange, TimeRange (含 custom), DateRange, ScanWindow, formatTokens, localDateString, dateRange, clampToWindow, recordTotal
 - `hooks/useUsage.ts`: single truth source, effectiveCustom memo (auto-clamp on refresh), setTimeRange(PresetRange), switchToCustom (首次继承/之后恢复)
 - `pages/UsagePage.tsx`: main dashboard (summary cards, daily chart, model table with breakdown)
-- `components/TimeRangeTab.tsx`: Today/7D/30D/Custom pill selector + date picker (扫描窗口边界, onChange(PresetRange))
+- `components/TimeRangeTab.tsx`: Today/7D/30D/Custom pill selector + date picker (扫描窗口边界, onChange(PresetRange), loading 时 disabled)
 - `components/SummaryCards.tsx`: 4-card grid (Total, Sent, Received, Cache Hit)
 - `components/DailyChart.tsx`: CSS horizontal bar chart (Claude=text/80, Codex=text/30)
 - `components/ModelTable.tsx`: model distribution table with input/output/cache columns
@@ -790,7 +836,7 @@ Token usage data aggregation. Both parsers output unified DailyRecord (4-field b
 - `mod.rs`: module entry
 - `types.rs`: DailyRecord (统一口径: input/output/cache_read/cache_write), UsageData (含 scanned_from/scanned_until 扫描窗口)
 - `commands.rs`: get_usage_data Tauri IPC command (spawn_blocking)
-- `parser/`: dual-tool log parser, parse_all() defines scan window + clips events (see parser/CLAUDE.md)
+- `parser/`: dual-tool log parser, LOOKBACK_DAYS 单一真相源, parse_all() defines scan window + clips events (see parser/CLAUDE.md)
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 ```
@@ -812,7 +858,7 @@ Run `pnpm tauri dev` and verify each scenario:
 |---|----------|-------|----------|
 | A1 | Presets work | Click Today → 7D → 30D | Charts update; pills highlight; no regression |
 | A2 | First Custom from 7D | View "7 Days", click Custom | Picker: from = max(6d ago, scanWindow.min), to = scanWindow.max. Data unchanged. |
-| A3 | First Custom from 30D | View "30 Days", click Custom | Picker: from = scanWindow.min (clamped), to = scanWindow.max. |
+| A3 | First Custom from 30D | View "30 Days", click Custom | Picker: from = 29d ago (30 Days preset 语义，在 scanWindow 范围内无需 clamp), to = today. |
 | A4 | First Custom from Today | View "Today", click Custom | Picker: from = today, to = today. |
 | A5 | Adjust custom from | In Custom, change "from" 3 days back | Chart narrows. All aggregations update. |
 | A6 | Restore last custom | Custom(3d), click 7D, click Custom | Restores 3-day range, not re-inheriting 7D. |
@@ -820,11 +866,13 @@ Run `pnpm tauri dev` and verify each scenario:
 | A8 | Zero-usage day selectable | Select today if no usage today | Selectable. Shows "No data for this period". |
 | A9 | Preset after Custom | Click Today while in Custom | Pill switches; picker hides; data matches. |
 | A10 | **Refresh auto-clamps** | Custom(from=near window edge), Refresh | If scanWindow.min shifts past "from": picker shows clamped "from" immediately. No stale date visible. |
-| A11 | **No dead data** | In useUsage `load` callback, add temporary `console.log("usage:", data.records.length, data.scanned_from, data.scanned_until)` → check DevTools Console | All records dates within [scanned_from, scanned_until]. Remove temp log after verification. |
+| A11 | **No dead data** | In useUsage `load` callback, add temporary `console.assert(data.records.every(r => r.date >= data.scanned_from && r.date <= data.scanned_until), "record outside scan window", data.records.map(r => r.date))` → check DevTools Console for assertion failure | Console 无 assertion failure。验证后删除临时断言。 |
 | A12 | Inverted range (dev tools) | Set customFrom > customTo via React DevTools | `effectiveCustom` swaps. No crash. |
 | A13 | Empty date input | Clear a date input (if browser allows) | `clampToWindow` falls back to window.max. `setCustomRange` dispatches clamped value. |
 | A14 | **Window edge** | Select scanned_from as "from" date | Data shown (fully scanned day). Not partial. |
 | A15 | **Type safety** | In IDE, try `setTimeRange("custom")` | TypeScript error: `"custom"` not assignable to `PresetRange`. Compile fails. |
+| A16 | **Loading 禁用** | 冷启动后立即尝试点击 Custom / 切换 preset | 按钮不可点击 (opacity-50 + pointer-events-none)。数据返回后恢复交互。 |
+| A17 | **Range before window** | 通过 React DevTools 将 customFrom/customTo 都设为 scanWindow.min 之前的日期 | `clampToWindow` 双向 clamp 坍缩到 win.min..win.min。picker 显示 scanned_from。过滤结果为空或仅含该日数据。 |
 
 - [ ] **Step 7: Commit**
 
@@ -844,3 +892,8 @@ git commit -m "feat(usage): wire custom date range with PresetRange type safety 
 | v3 | 2026-03-12 | Scan window (scanned_from) vs records boundary, clampToWindow, 12-scenario matrix |
 | v4 | 2026-03-12 | effectiveCustom memo (auto-clamp on refresh), scanned_from=now-30d, records.retain(), 14-scenario matrix |
 | v5 | 2026-03-12 | PresetRange type safety (setTimeRange/onChange only accept presets). scan_window_dates() + retain tests (2 new). A11 改用 console.log. parser/CLAUDE.md 纳入更新. 15-scenario matrix. |
+| v6 | 2026-03-12 | Loading 禁用 TimeRangeTab (防假 scanWindow 初始化 custom). LOOKBACK_DAYS 单一真相源 (mod.rs → sub-modules via super::). A3 修正 (from=29d ago, 非 scanWindow.min). 16-scenario matrix (A16: loading guard). |
+| v7 | 2026-03-12 | scan_window_dates 修正 `*now` → `now.clone()` (chrono 0.4 DateTime 非 Copy). Loading 保护下沉到 hook: switchToCustom/setCustomRange 加 `!state.data` 早退 (双层防线). |
+| v8 | 2026-03-12 | A11 改用 console.assert 硬断言 (锁住 no-dead-data 不变量). Task 1 验证命令修正: subshell 隔离 cd + pnpm typecheck 先行. |
+| v9 | 2026-03-12 | clampToWindow 修复: 加 `t < win.min` floor clamp, 防止两端都早于窗口时产生窗口外结果. |
+| v10 | 2026-03-12 | A17: 补 range-before-window 回归场景, 锁住 clampToWindow 下界坍缩分支. 17-scenario matrix. |
