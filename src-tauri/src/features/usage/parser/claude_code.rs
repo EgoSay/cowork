@@ -12,8 +12,6 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-const LOOKBACK_DAYS: u64 = 31;
-
 // ── session JSONL 事件结构 ──────────────────────────────
 
 #[derive(Deserialize)]
@@ -130,7 +128,7 @@ fn parse_from_dir(base: &Path) -> Vec<DailyRecord> {
     let pattern_str = pattern.to_string_lossy().to_string();
 
     let cutoff = std::time::SystemTime::now()
-        - std::time::Duration::from_secs(LOOKBACK_DAYS * 86400);
+        - std::time::Duration::from_secs(super::LOOKBACK_DAYS * 86_400);
 
     let mut global: Accum = HashMap::new();
 

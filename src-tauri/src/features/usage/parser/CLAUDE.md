@@ -1,12 +1,12 @@
 # features/usage/parser/
 > L2 | Parent: src-tauri/src/features/usage/
 
-Session JSONL parsers with unified token accounting.
+Session JSONL parsers with unified token accounting. LOOKBACK_DAYS 定义在 mod.rs（单一真相源）。
 
 ## Members
-- `mod.rs`: parse_all() coordinator, merges Claude + Codex records; shared timestamp_to_date
-- `claude_code.rs`: scans ~/.claude/projects/**/*.jsonl (含 subagents, mtime < 31d), dedup by message.id, sums per (date, model)
-- `codex.rs`: glob+mtime 扫描 ~/.codex/sessions/**/*.jsonl, incremental last_token_usage + event timestamp 做日归属
+- `mod.rs`: LOOKBACK_DAYS 常量（单一真相源）, parse_all() coordinator — defines scan window via scan_window_dates(), merges Claude + Codex records, clips events outside [scanned_from, scanned_until]; shared timestamp_to_date
+- `claude_code.rs`: scans ~/.claude/projects/**/*.jsonl (含 subagents, mtime via super::LOOKBACK_DAYS), dedup by message.id, sums per (date, model)
+- `codex.rs`: glob+mtime 扫描 ~/.codex/sessions/**/*.jsonl (mtime via super::LOOKBACK_DAYS), incremental last_token_usage + event timestamp 做日归属
 
 ## Token Accounting
 Claude: 4 independent fields from API → direct mapping

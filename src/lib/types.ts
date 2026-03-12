@@ -61,5 +61,6 @@ export interface DailyRecord {
 
 export interface UsageData {
   records: DailyRecord[]
+  scanned_from: string
   scanned_until: string
 }

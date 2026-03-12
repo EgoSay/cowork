@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 serde, crate::types::Tool
- * [OUTPUT]: 对外提供 DailyRecord, UsageData
+ * [OUTPUT]: 对外提供 DailyRecord, UsageData (含 scanned_from/scanned_until 扫描窗口)
  * [POS]: usage 模块核心数据结构，统一 token 口径
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,5 +23,6 @@ pub struct DailyRecord {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UsageData {
     pub records: Vec<DailyRecord>,
-    pub scanned_until: String,   // 扫描截止日期 (本地时区)
+    pub scanned_from: String,    // 最早完整可选日 (= now - 30d, 本地时区)
+    pub scanned_until: String,   // 扫描截止日期 (= today, 本地时区)
 }

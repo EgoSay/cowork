@@ -52,8 +52,6 @@ struct TokenUsage {
     total_tokens: u64,
 }
 
-const LOOKBACK_SECS: u64 = 31 * 86400;
-
 // ── 核心：解析单个 session 文件 ────────────────────────
 // 增量归属：跟踪 total_tokens 变化，检测到新 turn 时
 // 用 last_token_usage (per-turn 增量) + 事件 timestamp 做日归属。
@@ -133,7 +131,7 @@ fn parse_from_dir(base: &Path) -> Vec<DailyRecord> {
     let pattern_str = pattern.to_string_lossy().to_string();
 
     let cutoff = std::time::SystemTime::now()
-        - std::time::Duration::from_secs(LOOKBACK_SECS);
+        - std::time::Duration::from_secs(super::LOOKBACK_DAYS * 86_400);
 
     let mut global: Accum = HashMap::new();
 
