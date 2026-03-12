@@ -12,7 +12,9 @@ import { useUsage } from "../hooks/useUsage"
 
 export function UsagePage() {
   const {
-    timeRange, setTimeRange, loading, error, refresh,
+    timeRange, customFrom, customTo, scanWindow,
+    setTimeRange, setCustomRange, switchToCustom,
+    loading, error, refresh,
     totalTokens, dailyTotals, modelTotals, scannedUntil,
   } = useUsage()
 
@@ -20,7 +22,16 @@ export function UsagePage() {
     <div className="flex flex-col h-full">
       {/* 顶部工具栏 */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-        <TimeRangeTab active={timeRange} onChange={setTimeRange} />
+        <TimeRangeTab
+          active={timeRange}
+          customFrom={customFrom}
+          customTo={customTo}
+          scanWindow={scanWindow}
+          disabled={loading}
+          onChange={setTimeRange}
+          onCustomChange={setCustomRange}
+          onSwitchCustom={switchToCustom}
+        />
         <button
           onClick={refresh}
           disabled={loading}
