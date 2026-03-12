@@ -4,7 +4,7 @@
 Token usage monitoring dashboard. Unified 4-field accounting (input/output/cache_read/cache_write).
 
 ## Members
-- `lib.ts`: TimeRange type, formatTokens, localDateString (本地时区), cutoffDate, recordTotal
+- `lib.ts`: PresetRange/TimeRange/DateRange/ScanWindow types, formatTokens, localDateString, dateRange, clampToWindow, recordTotal
 - `hooks/useUsage.ts`: single truth source from DailyRecord[], derives all aggregations via useMemo
 - `pages/UsagePage.tsx`: main dashboard (summary cards, daily chart, model table with breakdown)
 - `components/TimeRangeTab.tsx`: Today/7D/30D pill selector
