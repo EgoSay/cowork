@@ -152,6 +152,12 @@ export function useUsage() {
     return [...map.values()].sort((a, b) => total(b) - total(a))
   }, [filtered])
 
+  // ── setTimeRange：只接受 PresetRange ─────────────────
+  const setTimeRange = useCallback(
+    (r: PresetRange) => dispatch({ type: "SET_RANGE", range: r }),
+    [],
+  )
+
   // ── Custom 切换：首次继承 preset，之后恢复 ─────────
   // data=null 时 scanWindow 是假值，早退防止错误初始化
   const switchToCustom = useCallback(() => {
@@ -178,8 +184,7 @@ export function useUsage() {
     customFrom: effectiveCustom.from,   // 暴露 clamped 版本
     customTo: effectiveCustom.to,       // 暴露 clamped 版本
     scanWindow,
-    // setTimeRange 只接受 PresetRange，custom 模式只能通过 switchToCustom 进入
-    setTimeRange: (r: PresetRange) => dispatch({ type: "SET_RANGE", range: r }),
+    setTimeRange,
     setCustomRange,
     switchToCustom,
     loading: state.loading,

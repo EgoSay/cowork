@@ -7,7 +7,7 @@
 mod claude_code;
 mod codex;
 
-use super::types::{DailyRecord, UsageData};
+use super::types::UsageData;
 use chrono::{DateTime, Duration, Local, TimeZone};
 
 // ── 扫描窗口常量（单一真相源）────────────────────────────
@@ -59,6 +59,7 @@ pub fn parse_all() -> UsageData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::types::DailyRecord;
     use crate::types::Tool;
     use chrono::FixedOffset;
 
