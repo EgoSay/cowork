@@ -1,22 +1,34 @@
 /**
- * [INPUT]: 依赖 TimeRangeTab, SummaryCards, DailyChart, ModelTable, useUsage
- * [OUTPUT]: 对外提供 UsagePage 组件
+ * [INPUT]: 依赖 react, TimeRangeTab, SummaryCards, DailyChart, ModelTable, useUsage
+ * [OUTPUT]: 对外提供 UsagePage 组件（支持 active prop，re-entry 静默刷新）
  * [POS]: usage pages 的主仪表盘视图，被 App.tsx 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+import { useEffect, useRef } from "react"
 import { TimeRangeTab } from "../components/TimeRangeTab"
 import { SummaryCards } from "../components/SummaryCards"
 import { DailyChart } from "../components/DailyChart"
 import { ModelTable } from "../components/ModelTable"
 import { useUsage } from "../hooks/useUsage"
 
-export function UsagePage() {
+interface UsagePageProps {
+  active?: boolean
+}
+
+export function UsagePage({ active = true }: UsagePageProps) {
   const {
     timeRange, displayFrom, displayTo, scanWindow,
     setTimeRange, setCustomRange,
-    loading, error, refresh,
+    loading, error, refresh, backgroundRefresh,
     totalTokens, dailyTotals, modelTotals, scannedUntil,
   } = useUsage()
+
+  // ── re-entry 静默刷新（跳过首次挂载，只在 false→true 时触发）──
+  const prevActive = useRef(active)
+  useEffect(() => {
+    if (active && !prevActive.current) backgroundRefresh()
+    prevActive.current = active
+  }, [active, backgroundRefresh])
 
   return (
     <div className="flex flex-col h-full">
