@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, types, serde_yaml
- * [OUTPUT]: 对外提供 ClaudeCodeScanner (扫描 ~/.claude/skills/)
- * [POS]: scanner/ 的 Claude Code 实现，解析 SKILL.md YAML frontmatter
+ * [OUTPUT]: 对外提供 ClaudeCodeScanner, pub(crate) parse_skill_md(path, tool) 供 Codex/Cursor 复用
+ * [POS]: scanner/ 的 Claude Code 实现，解析 SKILL.md YAML frontmatter；parse_skill_md 为跨工具共享函数
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::ToolScanner;

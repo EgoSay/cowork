@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 ToolScanner trait, shared/fs_utils
- * [OUTPUT]: 对外提供 CodexScanner (扫描 ~/.codex/AGENTS.md)
- * [POS]: scanner/ 的 Codex 实现
+ * [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, claude_code::parse_skill_md
+ * [OUTPUT]: 对外提供 CodexScanner (扫描 ~/.codex/AGENTS.md 及推送来的 SKILL.md)
+ * [POS]: scanner/ 的 Codex 实现，同时识别原生 AGENTS.md 与推送过来的 SKILL.md
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::ToolScanner;

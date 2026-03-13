@@ -1,6 +1,6 @@
-// [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, glob
-// [OUTPUT]: 对外提供 CursorScanner (扫描 ~/.cursor/rules/ 下 .mdc 文件)
-// [POS]: scanner/ 的 Cursor 实现
+// [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, glob, claude_code::parse_skill_md
+// [OUTPUT]: 对外提供 CursorScanner (扫描 ~/.cursor/rules/ 下 .mdc 文件及推送来的 SKILL.md)
+// [POS]: scanner/ 的 Cursor 实现，在 mdc glob 之后额外检测推送的 SKILL.md
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::ToolScanner;
 use super::claude_code::parse_skill_md;

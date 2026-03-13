@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 config::AppConfig, types::Tool, 各工具扫描器
  * [OUTPUT]: 对外提供 ToolScanner trait, scan_all(), scan_one()
- * [POS]: scanner/ 入口，扫描调度器，协调四个工具扫描器
+ * [POS]: scanner/ 入口，扫描调度器，协调四个工具扫描器；去重策略：同工具内按 content_hash，跨工具保留
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 pub mod claude_code;
