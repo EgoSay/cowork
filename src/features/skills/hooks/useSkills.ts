@@ -59,15 +59,10 @@ export function useSkills() {
 
   useEffect(() => { scan() }, [scan])
 
+  const query = state.search.toLowerCase()
   const filtered = state.skills.filter((s) => {
     if (state.filter !== "all" && s.source_tool !== state.filter) return false
-    if (state.search) {
-      const q = state.search.toLowerCase()
-      return (
-        s.name.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q)
-      )
-    }
+    if (query) return s.name.toLowerCase().includes(query)
     return true
   })
 
