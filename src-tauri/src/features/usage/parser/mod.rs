@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 claude_code, codex 子模块, chrono (含 Duration), super::types
- * [OUTPUT]: 对外提供 LOOKBACK_DAYS, parse_all(), scan_window_dates(), timestamp_to_date()
+ * [OUTPUT]: 对外提供 LOOKBACK_DAYS, TokenBucket, Accum, parse_all(), scan_window_dates(), timestamp_to_date()
  * [POS]: parser/ 入口，定义扫描窗口常量（单一真相源），协调解析，裁剪窗口外事件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,10 +9,23 @@ mod codex;
 
 use super::types::UsageData;
 use chrono::{DateTime, Duration, Local, TimeZone};
+use std::collections::HashMap;
 
 // ── 扫描窗口常量（单一真相源）────────────────────────────
 // 子模块 claude_code / codex 通过 super::LOOKBACK_DAYS 引用
 pub(crate) const LOOKBACK_DAYS: u64 = 31;
+
+// ── 共享：token 四字段桶（消除 tuple magic） ──────────────
+
+#[derive(Default)]
+pub(crate) struct TokenBucket {
+    pub(crate) input: u64,
+    pub(crate) output: u64,
+    pub(crate) cache_read: u64,
+    pub(crate) cache_write: u64,
+}
+
+pub(crate) type Accum = HashMap<(String, String), TokenBucket>;
 
 // ── 共享：时间戳 → 本地日期 ────────────────────────────
 

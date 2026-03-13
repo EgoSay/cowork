@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 serde_json, chrono, glob, dirs, crate::types::Tool, super::{types, timestamp_to_date}
+ * [INPUT]: 依赖 serde_json, chrono, glob, dirs, crate::types::Tool, super::{types, timestamp_to_date, Accum}
  * [OUTPUT]: 对外提供 parse() -> Vec<DailyRecord>
  * [POS]: Claude Code 会话解析器，读取 ~/.claude/projects/**/*.jsonl (含 subagents)
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::super::types::DailyRecord;
-use super::timestamp_to_date;
+use super::{timestamp_to_date, Accum};
 use crate::types::Tool;
 use chrono::{Local, TimeZone};
 use serde::Deserialize;
@@ -45,8 +45,6 @@ struct ClaudeUsage {
 // 同一个 message.id 会连续出现 2-10 次（流式中间态），
 // 只有最后一条携带完整 usage。先按 id 保留最后一条，
 // 再做 (date, model) 聚合。
-
-type Accum = HashMap<(String, String), (u64, u64, u64, u64)>;
 
 // 中间结构: 按 message.id 保留最后一条
 struct MessageSnapshot {
@@ -103,14 +101,14 @@ where
         snapshots.insert(key, MessageSnapshot { date, model, usage });
     }
 
-    // Phase 2: 将去重后的快照聚合为 (date, model) → tokens
+    // Phase 2: 将去重后的快照聚合为 (date, model) → TokenBucket
     let mut accum: Accum = HashMap::new();
     for snapshot in snapshots.into_values() {
         let entry = accum.entry((snapshot.date, snapshot.model)).or_default();
-        entry.0 += snapshot.usage.input_tokens;
-        entry.1 += snapshot.usage.output_tokens;
-        entry.2 += snapshot.usage.cache_read_input_tokens;
-        entry.3 += snapshot.usage.cache_creation_input_tokens;
+        entry.input += snapshot.usage.input_tokens;
+        entry.output += snapshot.usage.output_tokens;
+        entry.cache_read += snapshot.usage.cache_read_input_tokens;
+        entry.cache_write += snapshot.usage.cache_creation_input_tokens;
     }
 
     accum
@@ -149,22 +147,22 @@ fn parse_from_dir(base: &Path) -> Vec<DailyRecord> {
             Err(_) => continue,
         };
 
-        for ((date, model), (inp, out, cr, cw)) in parse_session_content(&content, &Local) {
+        for ((date, model), b) in parse_session_content(&content, &Local) {
             let e = global.entry((date, model)).or_default();
-            e.0 += inp;
-            e.1 += out;
-            e.2 += cr;
-            e.3 += cw;
+            e.input += b.input;
+            e.output += b.output;
+            e.cache_read += b.cache_read;
+            e.cache_write += b.cache_write;
         }
     }
 
     global.into_iter()
-        .map(|((date, model), (inp, out, cr, cw))| DailyRecord {
+        .map(|((date, model), b)| DailyRecord {
             date, tool: Tool::ClaudeCode, model,
-            input_tokens: inp,
-            output_tokens: out,
-            cache_read_tokens: cr,
-            cache_write_tokens: cw,
+            input_tokens: b.input,
+            output_tokens: b.output,
+            cache_read_tokens: b.cache_read,
+            cache_write_tokens: b.cache_write,
         })
         .collect()
 }
@@ -200,11 +198,11 @@ mod tests {
     fn parse_session_aggregates_by_date_model() {
         let accum = parse_session_content(MOCK_SESSION, &tz());
         let key = ("2026-03-11".to_string(), "claude-opus-4-6".to_string());
-        let (inp, out, cr, cw) = accum[&key];
-        assert_eq!(inp, 180);     // 100 + 80
-        assert_eq!(out, 80);      // 50 + 30
-        assert_eq!(cr, 11000);    // 5000 + 6000
-        assert_eq!(cw, 2000);     // 2000 + 0
+        let b = &accum[&key];
+        assert_eq!(b.input, 180);       // 100 + 80
+        assert_eq!(b.output, 80);       // 50 + 30
+        assert_eq!(b.cache_read, 11000); // 5000 + 6000
+        assert_eq!(b.cache_write, 2000); // 2000 + 0
     }
 
     #[test]
@@ -219,9 +217,9 @@ mod tests {
         );
         let accum = parse_session_content(content, &tz());
         let key = ("2026-03-11".to_string(), "claude-opus-4-6".to_string());
-        let (inp, out, _, _) = accum[&key];
-        assert_eq!(out, 230);     // 200 (msg_dup final) + 30 (msg_other)
-        assert_eq!(inp, 150);     // 100 (msg_dup final) + 50 (msg_other)
+        let b = &accum[&key];
+        assert_eq!(b.output, 230);  // 200 (msg_dup final) + 30 (msg_other)
+        assert_eq!(b.input, 150);   // 100 (msg_dup final) + 50 (msg_other)
     }
 
     #[test]
@@ -236,10 +234,10 @@ mod tests {
         // 精确断言日期桶
         let day1 = ("2026-03-11".to_string(), "claude-opus-4-6".to_string());
         let day2 = ("2026-03-12".to_string(), "claude-opus-4-6".to_string());
-        assert_eq!(accum[&day1].0, 10);  // input
-        assert_eq!(accum[&day1].1, 5);   // output
-        assert_eq!(accum[&day2].0, 20);
-        assert_eq!(accum[&day2].1, 10);
+        assert_eq!(accum[&day1].input, 10);
+        assert_eq!(accum[&day1].output, 5);
+        assert_eq!(accum[&day2].input, 20);
+        assert_eq!(accum[&day2].output, 10);
     }
 
     #[test]
@@ -249,7 +247,7 @@ mod tests {
             r#"{"type":"assistant","message":{"model":"claude-opus-4-6","usage":{"input_tokens":20,"output_tokens":10}},"timestamp":"2026-03-11T14:01:00+08:00"}"#
         );
         let accum = parse_session_content(content, &tz());
-        let total_inp: u64 = accum.values().map(|v| v.0).sum();
+        let total_inp: u64 = accum.values().map(|v| v.input).sum();
         assert_eq!(total_inp, 30);
     }
 
@@ -262,11 +260,11 @@ mod tests {
         );
         let accum = parse_session_content(content, &tz());
         assert_eq!(accum.len(), 1);
-        let (inp, out, cr, cw) = accum.values().next().unwrap();
-        assert_eq!(*inp, 10);
-        assert_eq!(*out, 5);
-        assert_eq!(*cr, 0);
-        assert_eq!(*cw, 0);
+        let b = accum.values().next().unwrap();
+        assert_eq!(b.input, 10);
+        assert_eq!(b.output, 5);
+        assert_eq!(b.cache_read, 0);
+        assert_eq!(b.cache_write, 0);
     }
 
     #[test]

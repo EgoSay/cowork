@@ -1,10 +1,10 @@
 /**
- * [INPUT]: 依赖 @/lib/types::DailyRecord
+ * [INPUT]: 无外部依赖（TokenFields 为内部接口）
  * [OUTPUT]: 对外提供 PresetRange, TimeRange, DateRange, ScanWindow, formatTokens, localDateString, dateRange, clampToWindow, recordTotal
  * [POS]: usage 模块共享工具，被 hooks 和 components 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-import type { DailyRecord } from "@/lib/types"
+// DailyRecord 和 ModelTotal 都满足 TokenFields 接口，无需直接依赖
 
 // ── 时间范围类型 ─────────────────────────────────────────
 // PresetRange 和 "custom" 是不同的入口：
@@ -90,8 +90,15 @@ export function clampToWindow(
   return { from: f, to: t }
 }
 
-// ── DailyRecord 总 token（统一口径） ────────────────────
+// ── 总 token（统一口径，接受 DailyRecord / ModelTotal 等任何含四字段的对象）
 
-export function recordTotal(r: DailyRecord): number {
+interface TokenFields {
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+}
+
+export function recordTotal(r: TokenFields): number {
   return r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens
 }

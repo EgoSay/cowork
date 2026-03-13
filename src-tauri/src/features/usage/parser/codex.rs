@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 serde_json, chrono, dirs, crate::types::Tool, super::{types, timestamp_to_date}
+ * [INPUT]: 依赖 serde_json, chrono, dirs, crate::types::Tool, super::{types, timestamp_to_date, Accum}
  * [OUTPUT]: 对外提供 parse() -> Vec<DailyRecord>
  * [POS]: Codex CLI 会话解析器，glob+mtime 扫描 ~/.codex/sessions/**/*.jsonl
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::super::types::DailyRecord;
-use super::timestamp_to_date;
+use super::{timestamp_to_date, Accum};
 use crate::types::Tool;
 use chrono::{Local, TimeZone};
 use serde::Deserialize;
@@ -57,8 +57,6 @@ struct TokenUsage {
 // 用 last_token_usage (per-turn 增量) + 事件 timestamp 做日归属。
 // 这样跨午夜的长 session 能正确拆分到不同日期。
 
-type Accum = HashMap<(String, String), (u64, u64, u64, u64)>;
-
 fn parse_session_content<Tz: TimeZone>(content: &str, tz: &Tz) -> Accum
 where
     Tz::Offset: std::fmt::Display,
@@ -99,9 +97,9 @@ where
                                         let e = accum
                                             .entry((date, m.clone()))
                                             .or_default();
-                                        e.0 += normalized_input;
-                                        e.1 += last.output_tokens;
-                                        e.2 += last.cached_input_tokens;
+                                        e.input += normalized_input;
+                                        e.output += last.output_tokens;
+                                        e.cache_read += last.cached_input_tokens;
                                         // Codex 不提供 cache_write
                                     }
                                 }
@@ -153,22 +151,22 @@ fn parse_from_dir(base: &Path) -> Vec<DailyRecord> {
         };
 
         // 日期由事件时间戳决定，非目录名
-        for ((d, m), (inp, out, cr, cw)) in parse_session_content(&content, &Local) {
+        for ((d, m), b) in parse_session_content(&content, &Local) {
             let e = global.entry((d, m)).or_default();
-            e.0 += inp;
-            e.1 += out;
-            e.2 += cr;
-            e.3 += cw;
+            e.input += b.input;
+            e.output += b.output;
+            e.cache_read += b.cache_read;
+            e.cache_write += b.cache_write;
         }
     }
 
     global.into_iter()
-        .map(|((date, model), (inp, out, cr, cw))| DailyRecord {
+        .map(|((date, model), b)| DailyRecord {
             date, tool: Tool::Codex, model,
-            input_tokens: inp,
-            output_tokens: out,
-            cache_read_tokens: cr,
-            cache_write_tokens: cw,
+            input_tokens: b.input,
+            output_tokens: b.output,
+            cache_read_tokens: b.cache_read,
+            cache_write_tokens: b.cache_write,
         })
         .collect()
 }
@@ -205,13 +203,13 @@ mod tests {
         );
         let accum = parse_session_content(content, &utc());
         let key = ("2026-03-11".to_string(), "o3-pro".to_string());
-        let (inp, out, cr, _) = accum[&key];
+        let b = &accum[&key];
         // input = (1000-800) + (4000-3200) = 200+800 = 1000
-        assert_eq!(inp, 1000);
+        assert_eq!(b.input, 1000);
         // output = 200 + 800 = 1000
-        assert_eq!(out, 1000);
+        assert_eq!(b.output, 1000);
         // cache_read = 800 + 3200 = 4000
-        assert_eq!(cr, 4000);
+        assert_eq!(b.cache_read, 4000);
     }
 
     #[test]
@@ -227,8 +225,8 @@ mod tests {
         assert_eq!(accum.len(), 2);
         let day1 = ("2026-03-11".to_string(), "o3-pro".to_string());
         let day2 = ("2026-03-12".to_string(), "o3-pro".to_string());
-        assert_eq!(accum[&day1].1, 200);  // output day1
-        assert_eq!(accum[&day2].1, 200);  // output day2
+        assert_eq!(accum[&day1].output, 200);  // output day1
+        assert_eq!(accum[&day2].output, 200);  // output day2
     }
 
     #[test]
@@ -244,8 +242,8 @@ mod tests {
         let accum = parse_session_content(content, &utc());
         let k1 = ("2026-03-11".to_string(), "gpt-5-codex".to_string());
         let k2 = ("2026-03-11".to_string(), "gpt-5".to_string());
-        assert_eq!(accum[&k1].1, 200);  // gpt-5-codex: 200 output
-        assert_eq!(accum[&k2].1, 200);  // gpt-5: 200 output
+        assert_eq!(accum[&k1].output, 200);  // gpt-5-codex: 200 output
+        assert_eq!(accum[&k2].output, 200);  // gpt-5: 200 output
     }
 
     #[test]
@@ -268,7 +266,7 @@ mod tests {
             r#"{"type":"event_msg","timestamp":"2026-03-11T10:02:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":50,"output_tokens":30,"total_tokens":130},"last_token_usage":{"input_tokens":100,"cached_input_tokens":50,"output_tokens":30,"total_tokens":130}}}}"#
         );
         let accum = parse_session_content(content, &utc());
-        let total_out: u64 = accum.values().map(|v| v.1).sum();
+        let total_out: u64 = accum.values().map(|v| v.output).sum();
         assert_eq!(total_out, 30);
     }
 

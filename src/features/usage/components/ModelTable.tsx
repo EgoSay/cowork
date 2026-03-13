@@ -4,17 +4,13 @@
  * [POS]: usage components 的模型分布表 (含 input/output/cache 明细)
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-import { formatTokens } from "../lib"
+import { formatTokens, recordTotal } from "../lib"
 import { TOOL_LABELS } from "@/lib/types"
 import type { ModelTotal } from "../hooks/useUsage"
 
 interface ModelTableProps {
   data: ModelTotal[]
   total: number
-}
-
-function rowTotal(m: ModelTotal): number {
-  return m.input_tokens + m.output_tokens + m.cache_read_tokens + m.cache_write_tokens
 }
 
 export function ModelTable({ data, total }: ModelTableProps) {
@@ -34,7 +30,7 @@ export function ModelTable({ data, total }: ModelTableProps) {
       </div>
       {/* 数据行 */}
       {data.map((m) => {
-        const t = rowTotal(m)
+        const t = recordTotal(m)
         const pct = total > 0 ? (t / total) * 100 : 0
         return (
           <div key={`${m.tool}:${m.model}`} className="flex items-center gap-2 text-xs py-1">

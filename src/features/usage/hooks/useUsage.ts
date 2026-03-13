@@ -147,9 +147,7 @@ export function useUsage() {
       entry.cache_write_tokens += r.cache_write_tokens
       map.set(key, entry)
     }
-    const total = (m: ModelTotal) =>
-      m.input_tokens + m.output_tokens + m.cache_read_tokens + m.cache_write_tokens
-    return [...map.values()].sort((a, b) => total(b) - total(a))
+    return [...map.values()].sort((a, b) => recordTotal(b) - recordTotal(a))
   }, [filtered])
 
   // ── setTimeRange：只接受 PresetRange ─────────────────
