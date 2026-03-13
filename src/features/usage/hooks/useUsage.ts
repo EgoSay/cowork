@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 @/lib/api::getUsageData, @/lib/types, ../lib
- * [OUTPUT]: 对外提供 useUsage hook（单真相源，displayFrom/displayTo 始终反映当前筛选范围）
+ * [OUTPUT]: 对外提供 useUsage hook（单真相源，displayFrom/displayTo 始终反映当前筛选范围，backgroundRefresh 静默刷新）
  * [POS]: usage hooks 核心，管理仪表盘状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -79,6 +79,16 @@ export function useUsage() {
       dispatch({ type: "SET_DATA", data })
     } catch (e) {
       dispatch({ type: "SET_ERROR", error: String(e) })
+    }
+  }, [])
+
+  // ── 静默刷新：不触发 loading 态，旧数据无缝替换 ────
+  const backgroundRefresh = useCallback(async () => {
+    try {
+      const data = await getUsageData()
+      dispatch({ type: "SET_DATA", data })
+    } catch (_) {
+      // 静默失败：后台刷新不打扰用户
     }
   }, [])
 
@@ -174,6 +184,7 @@ export function useUsage() {
     loading: state.loading,
     error: state.error,
     refresh: load,
+    backgroundRefresh,
     totalTokens,
     dailyTotals,
     modelTotals,
