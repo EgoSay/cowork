@@ -113,6 +113,16 @@ pub async fn reveal_in_finder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn save_skill_content(file_path: String, content: String) -> Result<(), String> {
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err(format!("File not found: {}", file_path));
+    }
+    std::fs::write(path, &content)
+        .map_err(|e| format!("Failed to write {}: {}", file_path, e))
+}
+
+#[tauri::command]
 pub async fn get_tool_configs() -> Result<AppConfig, String> {
     Ok(AppConfig::load())
 }
