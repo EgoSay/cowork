@@ -1,6 +1,6 @@
-// [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, glob
-// [OUTPUT]: 对外提供 CursorScanner (扫描 ~/.cursor/rules/ 下 .mdc 文件)
-// [POS]: scanner/ 的 Cursor 实现
+// [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, glob, mod::scan_skill_dirs
+// [OUTPUT]: 对外提供 CursorScanner (扫描 ~/.cursor/rules/ 下 .mdc 文件及符号链接目录)
+// [POS]: scanner/ 的 Cursor 实现，glob 扫描 .mdc 后额外遍历符号链接目录查找 SKILL.md
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::ToolScanner;
 use crate::features::skills::types::SkillMeta;
@@ -15,6 +15,8 @@ impl ToolScanner for CursorScanner {
 
     fn scan(dir: &Path, _patterns: &[String]) -> Vec<SkillMeta> {
         let mut results = Vec::new();
+
+        // 原生格式: *.mdc 文件
         let pattern = format!("{}/*.mdc", dir.display());
         if let Ok(entries) = glob::glob(&pattern) {
             for entry in entries.flatten() {
@@ -23,6 +25,10 @@ impl ToolScanner for CursorScanner {
                 }
             }
         }
+
+        // 推送来的技能: 遍历子目录/符号链接，查找 SKILL.md
+        results.extend(super::scan_skill_dirs(dir, Tool::Cursor));
+
         results
     }
 }
@@ -91,5 +97,24 @@ mod tests {
         let results = CursorScanner::scan(tmp.path(), &[]);
         assert_eq!(results.len(), 1);
         assert!(results[0].description.len() <= 120);
+    }
+
+    #[test]
+    fn scan_finds_symlinked_skill_dirs() {
+        let tmp = TempDir::new().unwrap();
+
+        // 真实目录
+        let hub = tmp.path().join("hub/my-skill");
+        fs::create_dir_all(&hub).unwrap();
+        fs::write(hub.join("SKILL.md"), "---\nname: my-skill\ndescription: test\n---\n").unwrap();
+
+        // 符号链接
+        let rules_dir = tmp.path().join("rules");
+        fs::create_dir_all(&rules_dir).unwrap();
+        std::os::unix::fs::symlink(&hub, rules_dir.join("my-skill")).unwrap();
+
+        let results = CursorScanner::scan(&rules_dir, &[]);
+        assert!(results.iter().any(|r| r.name == "my-skill"));
+        assert!(results.iter().any(|r| r.source_tool == Tool::Cursor));
     }
 }

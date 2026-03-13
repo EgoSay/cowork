@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 useSkillDetail hook, @/lib/types 的 SkillMeta, Tool, TOOL_LABELS
- * [OUTPUT]: 对外提供 SkillDetailPage 组件（详情 + Push + Actions）
+ * [INPUT]: 依赖 useSkillDetail hook（含 save）, @/lib/types 的 SkillMeta, Tool, TOOL_LABELS
+ * [OUTPUT]: 对外提供 SkillDetailPage 组件（详情 + Copy + Edit + Push + Actions）
  * [POS]: skills pages 的详情视图，被 App.tsx 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,8 +15,12 @@ interface SkillDetailPageProps {
 }
 
 export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
-  const { detail, loading, error, push, disable, enable, remove, reveal, reload } = useSkillDetail(skill)
+  const { detail, loading, error, push, disable, enable, remove, reveal, save, reload } = useSkillDetail(skill)
   const [pushing, setPushing] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState("")
+  const [saving, setSaving] = useState(false)
 
   if (loading) {
     return (
@@ -62,12 +66,52 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
     }
   }
 
+  const handleCopy = async () => {
+    if (!detail) return
+    try {
+      await navigator.clipboard.writeText(detail.content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      alert("Failed to copy to clipboard")
+    }
+  }
+
+  const handleEdit = () => {
+    if (!detail) return
+    setDraft(detail.content)
+    setEditing(true)
+  }
+
+  const handleCancel = () => {
+    if (draft !== detail?.content && !confirm("Discard unsaved changes?")) return
+    setEditing(false)
+    setDraft("")
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await save(draft)
+      setEditing(false)
+      setDraft("")
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      alert(`Save failed: ${msg}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* 返回导航 */}
       <div className="px-4 py-2.5 border-b border-border">
         <button
-          onClick={onBack}
+          onClick={() => {
+            if (editing && draft !== detail?.content && !confirm("Discard unsaved changes?")) return
+            onBack()
+          }}
           className="text-xs text-text-secondary hover:text-text transition-colors"
         >
           &larr; Back to Skills
@@ -105,10 +149,56 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
           </div>
 
           {/* 文件内容预览 */}
-          <div className="bg-[#0d0d0d] rounded-lg border border-border overflow-auto max-h-80">
-            <pre className="p-3 text-[11px] text-text-secondary font-mono leading-relaxed whitespace-pre-wrap">
-              {detail.content}
-            </pre>
+          <div className="bg-[#0d0d0d] rounded-lg border border-border overflow-hidden">
+            <div className="flex items-center justify-end gap-1.5 px-3 py-1.5 border-b border-border">
+              {editing ? (
+                <>
+                  <button
+                    onClick={handleCancel}
+                    disabled={saving}
+                    className="px-2.5 py-1 text-[11px] text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-2.5 py-1 text-[11px] text-bg bg-text rounded-md hover:opacity-90 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleCopy}
+                    className="px-2.5 py-1 text-[11px] text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                  <button
+                    onClick={handleEdit}
+                    className="px-2.5 py-1 text-[11px] text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
+                  >
+                    Edit
+                  </button>
+                </>
+              )}
+            </div>
+            {editing ? (
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="w-full h-80 p-3 text-[11px] text-text-secondary font-mono leading-relaxed bg-transparent resize-none focus:outline-none"
+                spellCheck={false}
+              />
+            ) : (
+              <div className="overflow-auto max-h-80">
+                <pre className="p-3 text-[11px] text-text-secondary font-mono leading-relaxed whitespace-pre-wrap">
+                  {detail.content}
+                </pre>
+              </div>
+            )}
           </div>
         </div>
 

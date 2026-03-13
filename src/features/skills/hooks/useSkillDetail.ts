@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 @/lib/api 的 skill 操作函数, @/lib/types
- * [OUTPUT]: 对外提供 useSkillDetail hook（加载、推送、停用、删除）
+ * [INPUT]: 依赖 @/lib/api 的 skill 操作函数（含 saveSkillContent）, @/lib/types
+ * [OUTPUT]: 对外提供 useSkillDetail hook（加载、推送、停用、删除、保存内容）
  * [POS]: skills hooks 的详情页状态管理
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { useCallback, useEffect, useState } from "react"
-import { getSkillDetail, pushSkill, disableSkill, enableSkill, deleteSkill, revealInFinder } from "@/lib/api"
+import { getSkillDetail, pushSkill, disableSkill, enableSkill, deleteSkill, revealInFinder, saveSkillContent } from "@/lib/api"
 import type { SkillDetail, SkillMeta, Tool, PushResult } from "@/lib/types"
 
 export function useSkillDetail(skill: SkillMeta) {
@@ -51,5 +51,10 @@ export function useSkillDetail(skill: SkillMeta) {
     await revealInFinder(skill.file_path)
   }
 
-  return { detail, loading, error, push, disable, enable, remove, reveal, reload: load }
+  const save = async (content: string) => {
+    await saveSkillContent(skill.file_path, content)
+    await load()
+  }
+
+  return { detail, loading, error, push, disable, enable, remove, reveal, save, reload: load }
 }

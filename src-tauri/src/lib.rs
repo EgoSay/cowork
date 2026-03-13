@@ -31,6 +31,7 @@ pub fn run() {
             commands::enable_skill,
             commands::delete_skill,
             commands::reveal_in_finder,
+            commands::save_skill_content,
             commands::get_tool_configs,
             commands::update_tool_config,
             provider_commands::get_providers,
