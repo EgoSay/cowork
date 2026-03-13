@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 useSkillDetail hook, @/lib/types 的 SkillMeta, Tool, TOOL_LABELS
- * [OUTPUT]: 对外提供 SkillDetailPage 组件（详情 + Push + Actions）
+ * [INPUT]: 依赖 useSkillDetail hook（含 save）, @/lib/types 的 SkillMeta, Tool, TOOL_LABELS
+ * [OUTPUT]: 对外提供 SkillDetailPage 组件（详情 + Copy + Edit + Push + Actions）
  * [POS]: skills pages 的详情视图，被 App.tsx 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,8 +15,12 @@ interface SkillDetailPageProps {
 }
 
 export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
-  const { detail, loading, error, push, disable, enable, remove, reveal, reload } = useSkillDetail(skill)
+  const { detail, loading, error, push, disable, enable, remove, reveal, save, reload } = useSkillDetail(skill)
   const [pushing, setPushing] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState("")
+  const [saving, setSaving] = useState(false)
 
   if (loading) {
     return (
@@ -59,6 +63,35 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
       }
     } finally {
       setPushing(false)
+    }
+  }
+
+  const handleCopy = async () => {
+    if (!detail) return
+    await navigator.clipboard.writeText(detail.content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  const handleEdit = () => {
+    if (!detail) return
+    setDraft(detail.content)
+    setEditing(true)
+  }
+
+  const handleCancel = () => {
+    setEditing(false)
+    setDraft("")
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await save(draft)
+      setEditing(false)
+      setDraft("")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -105,10 +138,56 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
           </div>
 
           {/* 文件内容预览 */}
-          <div className="bg-[#0d0d0d] rounded-lg border border-border overflow-auto max-h-80">
-            <pre className="p-3 text-[11px] text-text-secondary font-mono leading-relaxed whitespace-pre-wrap">
-              {detail.content}
-            </pre>
+          <div className="bg-[#0d0d0d] rounded-lg border border-border overflow-hidden">
+            <div className="flex items-center justify-end gap-1.5 px-3 py-1.5 border-b border-border">
+              {editing ? (
+                <>
+                  <button
+                    onClick={handleCancel}
+                    disabled={saving}
+                    className="px-2 py-0.5 text-[10px] text-text-muted hover:text-text transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-2 py-0.5 text-[10px] text-text bg-text/10 rounded hover:bg-text/20 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleCopy}
+                    className="px-2 py-0.5 text-[10px] text-text-muted hover:text-text transition-colors"
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                  <button
+                    onClick={handleEdit}
+                    className="px-2 py-0.5 text-[10px] text-text-muted hover:text-text transition-colors"
+                  >
+                    Edit
+                  </button>
+                </>
+              )}
+            </div>
+            {editing ? (
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="w-full h-80 p-3 text-[11px] text-text-secondary font-mono leading-relaxed bg-transparent resize-none focus:outline-none"
+                spellCheck={false}
+              />
+            ) : (
+              <div className="overflow-auto max-h-80">
+                <pre className="p-3 text-[11px] text-text-secondary font-mono leading-relaxed whitespace-pre-wrap">
+                  {detail.content}
+                </pre>
+              </div>
+            )}
           </div>
         </div>
 
