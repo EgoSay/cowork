@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 scanner, pusher, types, config
- * [OUTPUT]: 对外提供所有 #[tauri::command] 函数
+ * [OUTPUT]: 对外提供所有 #[tauri::command] 函数（含 save_skill_content）
  * [POS]: skills 功能的 Tauri IPC 接口层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
