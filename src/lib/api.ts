@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 @tauri-apps/api/core 的 invoke, ./types
- * [OUTPUT]: 对外提供所有 Tauri IPC 封装函数
+ * [OUTPUT]: 对外提供所有 Tauri IPC 封装函数，包括 saveSkillContent
  * [POS]: 前端 API 层，类型安全的 invoke 封装
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -42,6 +42,10 @@ export async function deleteSkill(filePath: string): Promise<void> {
 
 export async function revealInFinder(path: string): Promise<void> {
   return invoke("reveal_in_finder", { path })
+}
+
+export async function saveSkillContent(filePath: string, content: string): Promise<void> {
+  return invoke("save_skill_content", { filePath, content })
 }
 
 export async function getProviders(): Promise<ProvidersConfig> {
