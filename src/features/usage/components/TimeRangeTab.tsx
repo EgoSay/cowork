@@ -1,20 +1,20 @@
 /**
- * [INPUT]: 依赖 ../lib::PresetRange, ../lib::TimeRange, ../lib::ScanWindow
- * [OUTPUT]: 对外提供 TimeRangeTab 组件（含 Custom 日期选择器，扫描窗口边界，loading 禁用）
- * [POS]: usage components 的时间范围选择器
+ * [INPUT]: 依赖 ../lib::PresetRange, ../lib::TimeRange, ../lib::ScanWindow, ./DatePicker
+ * [OUTPUT]: 对外提供 TimeRangeTab 组件（preset 切换 + 始终可见的日期范围选择器）
+ * [POS]: usage components 的时间范围选择器，被 UsagePage 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import type { PresetRange, TimeRange, ScanWindow } from "../lib"
+import { DatePicker } from "./DatePicker"
 
 interface TimeRangeTabProps {
   active: TimeRange
-  customFrom: string
-  customTo: string
+  displayFrom: string             // 始终反映当前筛选范围（preset 或 custom）
+  displayTo: string
   scanWindow: ScanWindow
-  disabled?: boolean                          // loading 时禁用，防止假 scanWindow 初始化 custom
-  onChange: (range: PresetRange) => void       // 只接受 preset
+  disabled?: boolean
+  onChange: (range: PresetRange) => void
   onCustomChange: (from: string, to: string) => void
-  onSwitchCustom: () => void                   // custom 的唯一入口
 }
 
 const presets: { id: PresetRange; label: string }[] = [
@@ -24,8 +24,8 @@ const presets: { id: PresetRange; label: string }[] = [
 ]
 
 export function TimeRangeTab({
-  active, customFrom, customTo, scanWindow, disabled,
-  onChange, onCustomChange, onSwitchCustom,
+  active, displayFrom, displayTo, scanWindow, disabled,
+  onChange, onCustomChange,
 }: TimeRangeTabProps) {
   return (
     <div className={`flex items-center gap-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
@@ -44,43 +44,25 @@ export function TimeRangeTab({
         </button>
       ))}
 
-      {/* Custom pill: 走 switchToCustom (首次继承 preset / 之后恢复) */}
-      <button
-        disabled={disabled}
-        onClick={onSwitchCustom}
-        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-          active === "custom"
-            ? "bg-text text-bg"
-            : "text-text-muted hover:text-text-secondary"
-        }`}
-      >
-        Custom
-      </button>
-
-      {/* 日期选择器：仅在 custom 模式下显示，边界 = 扫描窗口 */}
-      {active === "custom" && (
-        <div className="flex items-center gap-1 ml-2">
-          <input
-            type="date"
-            disabled={disabled}
-            value={customFrom}
-            min={scanWindow.min}
-            max={customTo}
-            onChange={(e) => onCustomChange(e.target.value, customTo)}
-            className="px-1.5 py-0.5 rounded bg-bg-card border border-border text-xs text-text"
-          />
-          <span className="text-text-muted text-xs">–</span>
-          <input
-            type="date"
-            disabled={disabled}
-            value={customTo}
-            min={customFrom}
-            max={scanWindow.max}
-            onChange={(e) => onCustomChange(customFrom, e.target.value)}
-            className="px-1.5 py-0.5 rounded bg-bg-card border border-border text-xs text-text"
-          />
-        </div>
-      )}
+      {/* ── 日期范围：始终展示，修改即切换 custom ── */}
+      <div className="flex items-center gap-1 ml-2">
+        <DatePicker
+          value={displayFrom}
+          min={scanWindow.min}
+          max={displayTo}
+          disabled={disabled}
+          onChange={(d) => onCustomChange(d, displayTo)}
+        />
+        <span className="text-text-muted text-xs">&ndash;</span>
+        <DatePicker
+          value={displayTo}
+          min={displayFrom}
+          max={scanWindow.max}
+          disabled={disabled}
+          align="right"
+          onChange={(d) => onCustomChange(displayFrom, d)}
+        />
+      </div>
     </div>
   )
 }

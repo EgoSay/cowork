@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 @/lib/api::getUsageData, @/lib/types, ../lib
- * [OUTPUT]: 对外提供 useUsage hook（单真相源，所有聚合从 DailyRecord[] 派生）
+ * [OUTPUT]: 对外提供 useUsage hook（单真相源，displayFrom/displayTo 始终反映当前筛选范围）
  * [POS]: usage hooks 核心，管理仪表盘状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -156,21 +156,8 @@ export function useUsage() {
     [],
   )
 
-  // ── Custom 切换：首次继承 preset，之后恢复 ─────────
-  // data=null 时 scanWindow 是假值，早退防止错误初始化
-  const switchToCustom = useCallback(() => {
-    if (!state.data) return
-    if (state.customFrom === "") {
-      const current = dateRange(state.timeRange)
-      const clamped = clampToWindow(current.from, current.to, scanWindow)
-      dispatch({ type: "SET_CUSTOM", from: clamped.from, to: clamped.to })
-    } else {
-      dispatch({ type: "SET_RANGE", range: "custom" })
-    }
-  }, [state.data, state.timeRange, state.customFrom, scanWindow])
-
-  // ── 日期输入变更 ──────────────────────────────────
-  // data=null 时同理早退
+  // ── 日期输入变更（修改即自动切换 custom）───────────
+  // data=null 时早退防止假 scanWindow 初始化
   const setCustomRange = useCallback((from: string, to: string) => {
     if (!state.data) return
     const clamped = clampToWindow(from, to, scanWindow)
@@ -179,12 +166,11 @@ export function useUsage() {
 
   return {
     timeRange: state.timeRange,
-    customFrom: effectiveCustom.from,   // 暴露 clamped 版本
-    customTo: effectiveCustom.to,       // 暴露 clamped 版本
+    displayFrom: bounds.from,           // 始终反映当前筛选范围（preset 或 custom）
+    displayTo: bounds.to,
     scanWindow,
     setTimeRange,
     setCustomRange,
-    switchToCustom,
     loading: state.loading,
     error: state.error,
     refresh: load,
