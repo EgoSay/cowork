@@ -156,14 +156,14 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
                   <button
                     onClick={handleCancel}
                     disabled={saving}
-                    className="px-2 py-0.5 text-[10px] text-text-muted hover:text-text transition-colors disabled:opacity-50"
+                    className="px-2.5 py-1 text-[11px] text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-2 py-0.5 text-[10px] text-text bg-text/10 rounded hover:bg-text/20 transition-colors disabled:opacity-50"
+                    className="px-2.5 py-1 text-[11px] text-bg bg-text rounded-md hover:opacity-90 transition-colors disabled:opacity-50"
                   >
                     {saving ? "Saving..." : "Save"}
                   </button>
@@ -172,13 +172,13 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
                 <>
                   <button
                     onClick={handleCopy}
-                    className="px-2 py-0.5 text-[10px] text-text-muted hover:text-text transition-colors"
+                    className="px-2.5 py-1 text-[11px] text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
                   >
                     {copied ? "Copied!" : "Copy"}
                   </button>
                   <button
                     onClick={handleEdit}
-                    className="px-2 py-0.5 text-[10px] text-text-muted hover:text-text transition-colors"
+                    className="px-2.5 py-1 text-[11px] text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
                   >
                     Edit
                   </button>
