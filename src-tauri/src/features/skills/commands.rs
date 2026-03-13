@@ -112,11 +112,31 @@ pub async fn reveal_in_finder(path: String) -> Result<(), String> {
     Ok(())
 }
 
+// ---- 路径边界校验：防止任意文件写入 ----
+fn is_within_skills_dirs(path: &Path, config: &AppConfig) -> bool {
+    let canonical = match path.canonicalize() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae]
+        .iter()
+        .filter_map(|t| config.get_skills_dir(t))
+        .any(|dir| {
+            dir.canonicalize()
+                .map(|d| canonical.starts_with(&d))
+                .unwrap_or(false)
+        })
+}
+
 #[tauri::command]
 pub async fn save_skill_content(file_path: String, content: String) -> Result<(), String> {
     let path = Path::new(&file_path);
     if !path.exists() {
         return Err(format!("File not found: {}", file_path));
+    }
+    let config = AppConfig::load();
+    if !is_within_skills_dirs(path, &config) {
+        return Err(format!("Path is outside skills directories: {}", file_path));
     }
     std::fs::write(path, &content)
         .map_err(|e| format!("Failed to write {}: {}", file_path, e))

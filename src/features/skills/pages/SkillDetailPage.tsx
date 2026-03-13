@@ -68,9 +68,13 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
 
   const handleCopy = async () => {
     if (!detail) return
-    await navigator.clipboard.writeText(detail.content)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    try {
+      await navigator.clipboard.writeText(detail.content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      alert("Failed to copy to clipboard")
+    }
   }
 
   const handleEdit = () => {
@@ -80,6 +84,7 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
   }
 
   const handleCancel = () => {
+    if (draft !== detail?.content && !confirm("Discard unsaved changes?")) return
     setEditing(false)
     setDraft("")
   }
@@ -90,6 +95,9 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
       await save(draft)
       setEditing(false)
       setDraft("")
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      alert(`Save failed: ${msg}`)
     } finally {
       setSaving(false)
     }
@@ -100,7 +108,10 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
       {/* 返回导航 */}
       <div className="px-4 py-2.5 border-b border-border">
         <button
-          onClick={onBack}
+          onClick={() => {
+            if (editing && draft !== detail?.content && !confirm("Discard unsaved changes?")) return
+            onBack()
+          }}
           className="text-xs text-text-secondary hover:text-text transition-colors"
         >
           &larr; Back to Skills
