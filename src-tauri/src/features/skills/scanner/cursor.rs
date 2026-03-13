@@ -3,6 +3,7 @@
 // [POS]: scanner/ 的 Cursor 实现
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::ToolScanner;
+use super::claude_code::parse_skill_md;
 use crate::features::skills::types::SkillMeta;
 use crate::shared::fs_utils::{file_modified_at, hash_content, path_to_id};
 use crate::types::{SkillFormat, Status, Tool};
@@ -23,6 +24,15 @@ impl ToolScanner for CursorScanner {
                 }
             }
         }
+
+        // 推送来的 SKILL.md (来自 Claude Code)
+        let skill_md = dir.join("SKILL.md");
+        if skill_md.exists() {
+            if let Some(meta) = parse_skill_md(&skill_md, Tool::Cursor) {
+                results.push(meta);
+            }
+        }
+
         results
     }
 }
@@ -91,5 +101,16 @@ mod tests {
         let results = CursorScanner::scan(tmp.path(), &[]);
         assert_eq!(results.len(), 1);
         assert!(results[0].description.len() <= 120);
+    }
+
+    #[test]
+    fn scan_finds_pushed_skill_md() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(tmp.path().join("SKILL.md"), "---\nname: pushed-skill\ndescription: From Claude Code\n---\nContent").unwrap();
+
+        let results = CursorScanner::scan(tmp.path(), &[]);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "pushed-skill");
+        assert_eq!(results[0].source_tool, Tool::Cursor);
     }
 }
