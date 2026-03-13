@@ -71,9 +71,12 @@ pub fn scan_all(config: &AppConfig) -> Vec<SkillMeta> {
         }
     }
 
-    // 去重（按 content_hash）
-    results.sort_by(|a, b| a.name.cmp(&b.name));
-    results.dedup_by(|a, b| a.content_hash == b.content_hash);
+    // 去重（同工具内按 content_hash，跨工具保留）
+    results.sort_by(|a, b| {
+        a.source_tool.to_string().cmp(&b.source_tool.to_string())
+            .then(a.name.cmp(&b.name))
+    });
+    results.dedup_by(|a, b| a.source_tool == b.source_tool && a.content_hash == b.content_hash);
     results
 }
 
@@ -96,7 +99,7 @@ pub fn scan_one(config: &AppConfig, tool: &Tool) -> Vec<SkillMeta> {
                     results.extend(claude_code::ClaudeCodeScanner::scan(&hub_dir, &hub.scan_patterns));
                 }
             }
-            results.dedup_by(|a, b| a.content_hash == b.content_hash);
+            results.dedup_by(|a, b| a.source_tool == b.source_tool && a.content_hash == b.content_hash);
             return results;
         }
         Tool::Codex => ("codex", config.get_skills_dir(tool)),
@@ -206,5 +209,28 @@ mod tests {
         let results = scan_all(&config);
         // 同内容 hash 去重后只剩 1 个
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn scan_all_preserves_cross_tool_same_hash() {
+        let tmp = TempDir::new().unwrap();
+        let content = "---\nname: shared\ndescription: same content\n---\nBody";
+
+        // Claude Code 目录
+        let claude_dir = tmp.path().join("claude/shared");
+        fs::create_dir_all(&claude_dir).unwrap();
+        fs::write(claude_dir.join("SKILL.md"), content).unwrap();
+
+        // Codex 目录（推送过来的文件）
+        let codex_dir = tmp.path().join("codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        fs::write(codex_dir.join("SKILL.md"), content).unwrap();
+
+        let config = test_config(tmp.path());
+        let results = scan_all(&config);
+        // 相同内容但不同工具 — 两条记录都应保留
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().any(|r| r.source_tool == Tool::ClaudeCode));
+        assert!(results.iter().any(|r| r.source_tool == Tool::Codex));
     }
 }
