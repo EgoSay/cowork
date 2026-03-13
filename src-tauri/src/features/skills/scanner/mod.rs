@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 config::AppConfig, types::Tool, 各工具扫描器
- * [OUTPUT]: 对外提供 ToolScanner trait, scan_all(), scan_one()
- * [POS]: scanner/ 入口，扫描调度器，协调四个工具扫描器
+ * [OUTPUT]: 对外提供 ToolScanner trait, scan_all(), scan_one(), scan_skill_dirs()
+ * [POS]: scanner/ 入口，扫描调度器，协调四个工具扫描器；去重策略：同工具内按 content_hash，跨工具保留
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 pub mod claude_code;
@@ -18,6 +18,34 @@ use std::path::Path;
 pub trait ToolScanner {
     fn tool() -> Tool;
     fn scan(dir: &Path, patterns: &[String]) -> Vec<SkillMeta>;
+}
+
+/// 遍历目录中的子目录和符号链接，查找 SKILL.md（推送来的技能）
+/// symlink 优先判断，避免 is_dir() 跟随符号链接导致双重匹配
+pub(crate) fn scan_skill_dirs(dir: &Path, tool: Tool) -> Vec<SkillMeta> {
+    let mut results = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else { return results };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let target = if path.is_symlink() {
+            std::fs::read_link(&path).ok().map(|r| {
+                if r.is_absolute() { r } else { dir.join(&r) }
+            })
+        } else if path.is_dir() {
+            Some(path)
+        } else {
+            None
+        };
+        if let Some(target) = target {
+            let skill_md = target.join("SKILL.md");
+            if skill_md.exists() {
+                if let Some(meta) = claude_code::parse_skill_md(&skill_md, tool) {
+                    results.push(meta);
+                }
+            }
+        }
+    }
+    results
 }
 
 /// 扫描所有工具
@@ -71,9 +99,12 @@ pub fn scan_all(config: &AppConfig) -> Vec<SkillMeta> {
         }
     }
 
-    // 去重（按 content_hash）
-    results.sort_by(|a, b| a.name.cmp(&b.name));
-    results.dedup_by(|a, b| a.content_hash == b.content_hash);
+    // 去重（同工具内按 content_hash，跨工具保留）
+    results.sort_by(|a, b| {
+        a.source_tool.cmp(&b.source_tool)
+            .then(a.name.cmp(&b.name))
+    });
+    results.dedup_by(|a, b| a.source_tool == b.source_tool && a.content_hash == b.content_hash);
     results
 }
 
@@ -96,7 +127,7 @@ pub fn scan_one(config: &AppConfig, tool: &Tool) -> Vec<SkillMeta> {
                     results.extend(claude_code::ClaudeCodeScanner::scan(&hub_dir, &hub.scan_patterns));
                 }
             }
-            results.dedup_by(|a, b| a.content_hash == b.content_hash);
+            results.dedup_by(|a, b| a.source_tool == b.source_tool && a.content_hash == b.content_hash);
             return results;
         }
         Tool::Codex => ("codex", config.get_skills_dir(tool)),
@@ -132,8 +163,8 @@ mod tests {
             scan_patterns: vec!["*/SKILL.md".into()],
         });
         tools.insert("codex".into(), crate::config::ToolConfig {
-            skills_dir: dir.join("codex").to_string_lossy().to_string(),
-            scan_patterns: vec!["AGENTS.md".into()],
+            skills_dir: dir.join("codex/skILLs").to_string_lossy().to_string(),
+            scan_patterns: vec!["*/SKILL.md".into()],
         });
         tools.insert("cursor".into(), crate::config::ToolConfig {
             skills_dir: dir.join("cursor").to_string_lossy().to_string(),
@@ -206,5 +237,28 @@ mod tests {
         let results = scan_all(&config);
         // 同内容 hash 去重后只剩 1 个
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn scan_all_preserves_cross_tool_same_hash() {
+        let tmp = TempDir::new().unwrap();
+        let content = "---\nname: shared\ndescription: same content\n---\nBody";
+
+        // Claude Code 目录
+        let claude_dir = tmp.path().join("claude/shared");
+        fs::create_dir_all(&claude_dir).unwrap();
+        fs::write(claude_dir.join("SKILL.md"), content).unwrap();
+
+        // Codex 目录（推送过来的技能，子目录结构）
+        let codex_skill = tmp.path().join("codex/skILLs/shared");
+        fs::create_dir_all(&codex_skill).unwrap();
+        fs::write(codex_skill.join("SKILL.md"), content).unwrap();
+
+        let config = test_config(tmp.path());
+        let results = scan_all(&config);
+        // 相同内容但不同工具 — 两条记录都应保留
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().any(|r| r.source_tool == Tool::ClaudeCode));
+        assert!(results.iter().any(|r| r.source_tool == Tool::Codex));
     }
 }

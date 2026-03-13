@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, types, serde_yaml
- * [OUTPUT]: 对外提供 ClaudeCodeScanner (扫描 ~/.claude/skills/)
- * [POS]: scanner/ 的 Claude Code 实现，解析 SKILL.md YAML frontmatter
+ * [OUTPUT]: 对外提供 ClaudeCodeScanner, pub(crate) parse_skill_md(path, tool) 供 Codex/Cursor 复用
+ * [POS]: scanner/ 的 Claude Code 实现，解析 SKILL.md YAML frontmatter；parse_skill_md 为跨工具共享函数
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::ToolScanner;
@@ -16,46 +16,12 @@ impl ToolScanner for ClaudeCodeScanner {
     fn tool() -> Tool { Tool::ClaudeCode }
 
     fn scan(dir: &Path, _patterns: &[String]) -> Vec<SkillMeta> {
-        let mut results = Vec::new();
-        let Ok(entries) = std::fs::read_dir(dir) else { return results };
-
-        for entry in entries.flatten() {
-            let path = entry.path();
-
-            // 目录：查找 SKILL.md
-            if path.is_dir() {
-                let skill_md = path.join("SKILL.md");
-                if skill_md.exists() {
-                    if let Some(meta) = parse_skill_md(&skill_md) {
-                        results.push(meta);
-                    }
-                }
-            }
-
-            // 符号链接：解析后查找 SKILL.md
-            if path.is_symlink() {
-                if let Ok(resolved) = std::fs::read_link(&path) {
-                    let target = if resolved.is_absolute() {
-                        resolved
-                    } else {
-                        dir.join(&resolved)
-                    };
-                    let skill_md = target.join("SKILL.md");
-                    if skill_md.exists() {
-                        if let Some(meta) = parse_skill_md(&skill_md) {
-                            results.push(meta);
-                        }
-                    }
-                }
-            }
-        }
-
-        results
+        super::scan_skill_dirs(dir, Tool::ClaudeCode)
     }
 }
 
-/// 解析 SKILL.md 的 YAML frontmatter
-fn parse_skill_md(path: &Path) -> Option<SkillMeta> {
+/// 解析 SKILL.md 的 YAML frontmatter，tool 参数决定 source_tool 归属
+pub(crate) fn parse_skill_md(path: &Path, tool: Tool) -> Option<SkillMeta> {
     let content = std::fs::read_to_string(path).ok()?;
     let content_hash = hash_content(content.as_bytes());
 
@@ -99,7 +65,7 @@ fn parse_skill_md(path: &Path) -> Option<SkillMeta> {
         id: path_to_id(path),
         name,
         description,
-        source_tool: Tool::ClaudeCode,
+        source_tool: tool,
         file_path: path.to_string_lossy().to_string(),
         format: SkillFormat::SkillMd,
         status: Status::Active,
@@ -123,7 +89,7 @@ mod tests {
         let skill_path = skill_dir.join("SKILL.md");
         fs::write(&skill_path, "---\nname: my-skill\ndescription: Does stuff\nversion: \"1.0\"\n---\n# Content here").unwrap();
 
-        let meta = parse_skill_md(&skill_path).unwrap();
+        let meta = parse_skill_md(&skill_path, Tool::ClaudeCode).unwrap();
         assert_eq!(meta.name, "my-skill");
         assert_eq!(meta.description, "Does stuff");
         assert_eq!(meta.version, Some("1.0".into()));
@@ -142,7 +108,7 @@ mod tests {
         let skill_path = skill_dir.join("SKILL.md");
         fs::write(&skill_path, "Just plain content, no YAML").unwrap();
 
-        let meta = parse_skill_md(&skill_path).unwrap();
+        let meta = parse_skill_md(&skill_path, Tool::ClaudeCode).unwrap();
         assert_eq!(meta.name, "fallback-name"); // 用目录名
         assert!(meta.description.is_empty());
         assert!(meta.version.is_none());
@@ -157,7 +123,7 @@ mod tests {
         // 有 --- 开头但 YAML 不闭合
         fs::write(&skill_path, "---\ninvalid yaml without closing").unwrap();
 
-        assert!(parse_skill_md(&skill_path).is_none());
+        assert!(parse_skill_md(&skill_path, Tool::ClaudeCode).is_none());
     }
 
     #[test]

@@ -28,9 +28,10 @@ impl Default for AppConfig {
             skills_dir: "~/.claude/skills".into(),
             scan_patterns: vec!["*/SKILL.md".into()],
         });
+        // Codex 官方目录名为 skILLs（大小写是 Codex CLI 的约定）
         tools.insert("codex".into(), ToolConfig {
-            skills_dir: "~/.codex".into(),
-            scan_patterns: vec!["AGENTS.md".into()],
+            skills_dir: "~/.codex/skILLs".into(),
+            scan_patterns: vec!["*/SKILL.md".into()],
         });
         tools.insert("cursor".into(), ToolConfig {
             skills_dir: "~/.cursor/rules".into(),

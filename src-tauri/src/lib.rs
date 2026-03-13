@@ -9,7 +9,7 @@ mod features;
 mod shared;
 mod types;
 
-use features::skills::commands as skills_commands;
+use features::skills::commands;
 use features::usage::commands as usage_commands;
 use features::providers::commands as provider_commands;
 use std::sync::Mutex;
@@ -24,16 +24,17 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(ProviderLock(Mutex::new(())))
         .invoke_handler(tauri::generate_handler![
-            skills_commands::scan_all_tools,
-            skills_commands::scan_tool,
-            skills_commands::get_skill_detail,
-            skills_commands::push_skill,
-            skills_commands::disable_skill,
-            skills_commands::enable_skill,
-            skills_commands::delete_skill,
-            skills_commands::reveal_in_finder,
-            skills_commands::get_tool_configs,
-            skills_commands::update_tool_config,
+            commands::scan_all_tools,
+            commands::scan_tool,
+            commands::get_skill_detail,
+            commands::push_skill,
+            commands::disable_skill,
+            commands::enable_skill,
+            commands::delete_skill,
+            commands::reveal_in_finder,
+            commands::save_skill_content,
+            commands::get_tool_configs,
+            commands::update_tool_config,
             usage_commands::get_usage_data,
             provider_commands::get_providers,
             provider_commands::switch_provider,

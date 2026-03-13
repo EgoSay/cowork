@@ -96,7 +96,7 @@ impl ProvidersConfig {
         if provider.provider_type == ProviderType::Official {
             return Err("Cannot remove official provider".into());
         }
-        let tool = provider.tool.clone();
+        let tool = provider.tool;
         if self.active.get(&tool).map(|a| a.as_str()) == Some(id) {
             let official = self.providers.iter()
                 .find(|p| p.tool == tool && p.provider_type == ProviderType::Official)
@@ -115,7 +115,7 @@ impl ProvidersConfig {
         if !exists {
             return Err(format!("Provider '{}' not found for tool '{:?}'", provider_id, tool));
         }
-        self.active.insert(tool.clone(), provider_id.into());
+        self.active.insert(*tool, provider_id.into());
         Ok(())
     }
 

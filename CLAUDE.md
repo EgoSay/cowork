@@ -29,7 +29,7 @@ src-tauri/tauri.conf.json - Tauri 窗口配置, macOS Overlay 标题栏
 ## 架构决策
 - 纯文件系统 + 内存索引，无数据库
 - 原格式存储，不做 Skills 格式转换
-- 文件复制推送（非软链接）
+- 符号链接推送：~/.skillshub/ 为中心，各工具 skills 目录通过 symlink 引用
 - Monochrome 配色: #0a0a0a bg, #141414 card, #fafafa text
 - features/ 模块化目录（前后端对称）
 - Scanner trait 模式扫描四个工具

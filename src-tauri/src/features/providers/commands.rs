@@ -86,7 +86,7 @@ pub async fn remove_provider(lock: State<'_, ProviderLock>, id: String) -> Resul
 
     let provider = config.find_provider(&id)
         .ok_or_else(|| format!("Provider '{}' not found", id))?;
-    let tool = provider.tool.clone();
+    let tool = provider.tool;
     let is_active = config.active.get(&tool).map(|a| a.as_str()) == Some(&id);
 
     config.remove_provider(&id)?;

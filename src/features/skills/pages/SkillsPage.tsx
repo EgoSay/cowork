@@ -42,7 +42,7 @@ export function SkillsPage({ onSelectSkill }: SkillsPageProps) {
       </div>
 
       {/* 卡片网格 */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-4 will-change-transform">
         {error && (
           <div className="text-danger text-xs mb-4">Error: {error}</div>
         )}
