@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, glob
- * [OUTPUT]: 对外提供 TraeScanner (扫描 ~/.trae/rules/)
- * [POS]: scanner/ 的 Trae 实现
+ * [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, glob, mod::scan_skill_dirs
+ * [OUTPUT]: 对外提供 TraeScanner (扫描 ~/.trae/rules/ 的原生文件及符号链接目录)
+ * [POS]: scanner/ 的 Trae 实现，glob 扫描原生格式后额外遍历符号链接目录查找 SKILL.md
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::ToolScanner;
@@ -17,6 +17,8 @@ impl ToolScanner for TraeScanner {
 
     fn scan(dir: &Path, patterns: &[String]) -> Vec<SkillMeta> {
         let mut results = Vec::new();
+
+        // 原生格式: 按 patterns glob
         for pattern in patterns {
             let glob_pattern = format!("{}/{}", dir.display(), pattern);
             if let Ok(entries) = glob::glob(&glob_pattern) {
@@ -27,6 +29,10 @@ impl ToolScanner for TraeScanner {
                 }
             }
         }
+
+        // 推送来的技能: 遍历子目录/符号链接，查找 SKILL.md
+        results.extend(super::scan_skill_dirs(dir, Tool::Trae));
+
         results
     }
 }
@@ -91,5 +97,24 @@ mod tests {
 
         let results = TraeScanner::scan(tmp.path(), &[]);
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn scan_finds_symlinked_skill_dirs() {
+        let tmp = TempDir::new().unwrap();
+
+        // 真实目录
+        let hub = tmp.path().join("hub/my-skill");
+        fs::create_dir_all(&hub).unwrap();
+        fs::write(hub.join("SKILL.md"), "---\nname: my-skill\ndescription: test\n---\n").unwrap();
+
+        // 符号链接
+        let rules_dir = tmp.path().join("rules");
+        fs::create_dir_all(&rules_dir).unwrap();
+        std::os::unix::fs::symlink(&hub, rules_dir.join("my-skill")).unwrap();
+
+        let results = TraeScanner::scan(&rules_dir, &[]);
+        assert!(results.iter().any(|r| r.name == "my-skill"));
+        assert!(results.iter().any(|r| r.source_tool == Tool::Trae));
     }
 }

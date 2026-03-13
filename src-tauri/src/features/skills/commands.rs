@@ -28,21 +28,19 @@ pub async fn get_skill_detail(meta: SkillMeta) -> Result<SkillDetail, String> {
         .map_err(|e| format!("Failed to read {}: {}", meta.file_path, e))?;
 
     let config = AppConfig::load();
+    let skill_name = super::pusher::skill_dir_name(Path::new(&meta.file_path))
+        .map(|(_, name)| name);
     let push_status = [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae]
         .iter()
         .map(|tool| {
-            let deployed = if let Some(dir) = config.get_skills_dir(tool) {
-                let file_name = Path::new(&meta.file_path).file_name()
-                    .unwrap_or_default();
-                dir.join(file_name).exists()
-            } else {
-                false
-            };
+            let dir = config.get_skills_dir(tool);
+            let deployed = skill_name.as_ref().map_or(false, |name| {
+                dir.as_ref().map_or(false, |d| d.join(name).symlink_metadata().is_ok())
+            });
             PushTarget {
-                tool: tool.clone(),
+                tool: *tool,
                 deployed,
-                target_path: config.get_skills_dir(tool)
-                    .map(|p| p.to_string_lossy().to_string()),
+                target_path: dir.map(|p| p.to_string_lossy().to_string()),
             }
         })
         .collect();
@@ -93,7 +91,14 @@ pub async fn enable_skill(file_path: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn delete_skill(file_path: String) -> Result<(), String> {
     let path = Path::new(&file_path);
-    if path.is_dir() {
+    let config = AppConfig::load();
+    if !is_within_skills_dirs(path, &config) {
+        return Err(format!("Path is outside skills directories: {}", file_path));
+    }
+    // 符号链接优先：remove_file 只删链接本身，不删目标
+    if path.is_symlink() {
+        std::fs::remove_file(path).map_err(|e| e.to_string())
+    } else if path.is_dir() {
         std::fs::remove_dir_all(path).map_err(|e| e.to_string())
     } else {
         std::fs::remove_file(path).map_err(|e| e.to_string())
@@ -118,9 +123,13 @@ fn is_within_skills_dirs(path: &Path, config: &AppConfig) -> bool {
         Ok(p) => p,
         Err(_) => return false,
     };
+    // 四个工具目录 + skillshub 均为合法写入区域
+    let hub_dir = config.tools.get("skillshub")
+        .map(|c| crate::shared::fs_utils::expand_tilde(&c.skills_dir));
     [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae]
         .iter()
         .filter_map(|t| config.get_skills_dir(t))
+        .chain(hub_dir)
         .any(|dir| {
             dir.canonicalize()
                 .map(|d| canonical.starts_with(&d))

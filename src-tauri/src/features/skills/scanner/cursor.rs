@@ -1,9 +1,8 @@
-// [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, glob, claude_code::parse_skill_md
-// [OUTPUT]: 对外提供 CursorScanner (扫描 ~/.cursor/rules/ 下 .mdc 文件及推送来的 SKILL.md)
-// [POS]: scanner/ 的 Cursor 实现，在 mdc glob 之后额外检测推送的 SKILL.md
+// [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, glob, mod::scan_skill_dirs
+// [OUTPUT]: 对外提供 CursorScanner (扫描 ~/.cursor/rules/ 下 .mdc 文件及符号链接目录)
+// [POS]: scanner/ 的 Cursor 实现，glob 扫描 .mdc 后额外遍历符号链接目录查找 SKILL.md
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::ToolScanner;
-use super::claude_code::parse_skill_md;
 use crate::features::skills::types::SkillMeta;
 use crate::shared::fs_utils::{file_modified_at, hash_content, path_to_id};
 use crate::types::{SkillFormat, Status, Tool};
@@ -16,6 +15,8 @@ impl ToolScanner for CursorScanner {
 
     fn scan(dir: &Path, _patterns: &[String]) -> Vec<SkillMeta> {
         let mut results = Vec::new();
+
+        // 原生格式: *.mdc 文件
         let pattern = format!("{}/*.mdc", dir.display());
         if let Ok(entries) = glob::glob(&pattern) {
             for entry in entries.flatten() {
@@ -25,13 +26,8 @@ impl ToolScanner for CursorScanner {
             }
         }
 
-        // 推送来的 SKILL.md (来自 Claude Code)
-        let skill_md = dir.join("SKILL.md");
-        if skill_md.exists() {
-            if let Some(meta) = parse_skill_md(&skill_md, Tool::Cursor) {
-                results.push(meta);
-            }
-        }
+        // 推送来的技能: 遍历子目录/符号链接，查找 SKILL.md
+        results.extend(super::scan_skill_dirs(dir, Tool::Cursor));
 
         results
     }
@@ -104,13 +100,21 @@ mod tests {
     }
 
     #[test]
-    fn scan_finds_pushed_skill_md() {
+    fn scan_finds_symlinked_skill_dirs() {
         let tmp = TempDir::new().unwrap();
-        fs::write(tmp.path().join("SKILL.md"), "---\nname: pushed-skill\ndescription: From Claude Code\n---\nContent").unwrap();
 
-        let results = CursorScanner::scan(tmp.path(), &[]);
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "pushed-skill");
-        assert_eq!(results[0].source_tool, Tool::Cursor);
+        // 真实目录
+        let hub = tmp.path().join("hub/my-skill");
+        fs::create_dir_all(&hub).unwrap();
+        fs::write(hub.join("SKILL.md"), "---\nname: my-skill\ndescription: test\n---\n").unwrap();
+
+        // 符号链接
+        let rules_dir = tmp.path().join("rules");
+        fs::create_dir_all(&rules_dir).unwrap();
+        std::os::unix::fs::symlink(&hub, rules_dir.join("my-skill")).unwrap();
+
+        let results = CursorScanner::scan(&rules_dir, &[]);
+        assert!(results.iter().any(|r| r.name == "my-skill"));
+        assert!(results.iter().any(|r| r.source_tool == Tool::Cursor));
     }
 }

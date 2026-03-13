@@ -16,41 +16,7 @@ impl ToolScanner for ClaudeCodeScanner {
     fn tool() -> Tool { Tool::ClaudeCode }
 
     fn scan(dir: &Path, _patterns: &[String]) -> Vec<SkillMeta> {
-        let mut results = Vec::new();
-        let Ok(entries) = std::fs::read_dir(dir) else { return results };
-
-        for entry in entries.flatten() {
-            let path = entry.path();
-
-            // 目录：查找 SKILL.md
-            if path.is_dir() {
-                let skill_md = path.join("SKILL.md");
-                if skill_md.exists() {
-                    if let Some(meta) = parse_skill_md(&skill_md, Tool::ClaudeCode) {
-                        results.push(meta);
-                    }
-                }
-            }
-
-            // 符号链接：解析后查找 SKILL.md
-            if path.is_symlink() {
-                if let Ok(resolved) = std::fs::read_link(&path) {
-                    let target = if resolved.is_absolute() {
-                        resolved
-                    } else {
-                        dir.join(&resolved)
-                    };
-                    let skill_md = target.join("SKILL.md");
-                    if skill_md.exists() {
-                        if let Some(meta) = parse_skill_md(&skill_md, Tool::ClaudeCode) {
-                            results.push(meta);
-                        }
-                    }
-                }
-            }
-        }
-
-        results
+        super::scan_skill_dirs(dir, Tool::ClaudeCode)
     }
 }
 

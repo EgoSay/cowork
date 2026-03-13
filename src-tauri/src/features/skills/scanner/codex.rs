@@ -1,11 +1,10 @@
 /**
- * [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, claude_code::parse_skill_md
- * [OUTPUT]: 对外提供 CodexScanner (扫描 ~/.codex/AGENTS.md 及推送来的 SKILL.md)
- * [POS]: scanner/ 的 Codex 实现，同时识别原生 AGENTS.md 与推送过来的 SKILL.md
+ * [INPUT]: 依赖 ToolScanner trait, shared/fs_utils, mod::scan_skill_dirs
+ * [OUTPUT]: 对外提供 CodexScanner (扫描 ~/.codex/skILLs/ 子目录及符号链接)
+ * [POS]: scanner/ 的 Codex 实现，遍历目录/符号链接查找 SKILL.md，兼顾父级 AGENTS.md
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::ToolScanner;
-use super::claude_code::parse_skill_md;
 use crate::features::skills::types::SkillMeta;
 use crate::shared::fs_utils::{file_modified_at, hash_content, path_to_id};
 use crate::types::{SkillFormat, Status, Tool};
@@ -19,21 +18,18 @@ impl ToolScanner for CodexScanner {
     fn scan(dir: &Path, _patterns: &[String]) -> Vec<SkillMeta> {
         let mut results = Vec::new();
 
-        // 原生格式: AGENTS.md
-        let agents_md = dir.join("AGENTS.md");
-        if agents_md.exists() {
-            if let Some(meta) = parse_agents_md(&agents_md) {
-                results.push(meta);
+        // 父级 AGENTS.md（原生格式，如 ~/.codex/AGENTS.md）
+        if let Some(parent) = dir.parent() {
+            let agents_md = parent.join("AGENTS.md");
+            if agents_md.exists() {
+                if let Some(meta) = parse_agents_md(&agents_md) {
+                    results.push(meta);
+                }
             }
         }
 
-        // 推送来的 SKILL.md (来自 Claude Code)
-        let skill_md = dir.join("SKILL.md");
-        if skill_md.exists() {
-            if let Some(meta) = parse_skill_md(&skill_md, Tool::Codex) {
-                results.push(meta);
-            }
-        }
+        // 遍历子目录和符号链接，查找 SKILL.md
+        results.extend(super::scan_skill_dirs(dir, Tool::Codex));
 
         results
     }
@@ -67,33 +63,56 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn scan_finds_agents_md() {
+    fn scan_finds_agents_md_in_parent() {
         let tmp = TempDir::new().unwrap();
+        let skills_dir = tmp.path().join("skILLs");
+        fs::create_dir_all(&skills_dir).unwrap();
         fs::write(tmp.path().join("AGENTS.md"), "# Agent config").unwrap();
 
-        let results = CodexScanner::scan(tmp.path(), &[]);
+        let results = CodexScanner::scan(&skills_dir, &[]);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "AGENTS");
-        assert_eq!(results[0].source_tool, Tool::Codex);
         assert_eq!(results[0].format, SkillFormat::AgentsMd);
+    }
+
+    #[test]
+    fn scan_finds_skill_in_subdir() {
+        let tmp = TempDir::new().unwrap();
+        let skills_dir = tmp.path().join("skILLs");
+        let skill = skills_dir.join("my-skill");
+        fs::create_dir_all(&skill).unwrap();
+        fs::write(skill.join("SKILL.md"), "---\nname: my-skill\ndescription: test\n---\n").unwrap();
+
+        let results = CodexScanner::scan(&skills_dir, &[]);
+        assert!(results.iter().any(|r| r.name == "my-skill"));
+        assert!(results.iter().any(|r| r.source_tool == Tool::Codex));
+    }
+
+    #[test]
+    fn scan_follows_symlinks() {
+        let tmp = TempDir::new().unwrap();
+
+        // 真实技能目录（模拟 skillshub）
+        let hub_skill = tmp.path().join("hub/brand-namer");
+        fs::create_dir_all(&hub_skill).unwrap();
+        fs::write(hub_skill.join("SKILL.md"), "---\nname: brand-namer\ndescription: naming\n---\n").unwrap();
+
+        // 符号链接
+        let skills_dir = tmp.path().join("skILLs");
+        fs::create_dir_all(&skills_dir).unwrap();
+        std::os::unix::fs::symlink(&hub_skill, skills_dir.join("brand-namer")).unwrap();
+
+        let results = CodexScanner::scan(&skills_dir, &[]);
+        assert!(results.iter().any(|r| r.name == "brand-namer"));
     }
 
     #[test]
     fn scan_empty_dir_returns_empty() {
         let tmp = TempDir::new().unwrap();
-        let results = CodexScanner::scan(tmp.path(), &[]);
+        let skills_dir = tmp.path().join("skILLs");
+        fs::create_dir_all(&skills_dir).unwrap();
+
+        let results = CodexScanner::scan(&skills_dir, &[]);
         assert!(results.is_empty());
-    }
-
-    #[test]
-    fn scan_finds_pushed_skill_md() {
-        let tmp = TempDir::new().unwrap();
-        fs::write(tmp.path().join("SKILL.md"), "---\nname: pushed-skill\ndescription: From Claude Code\n---\nContent").unwrap();
-
-        let results = CodexScanner::scan(tmp.path(), &[]);
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "pushed-skill");
-        assert_eq!(results[0].source_tool, Tool::Codex);
-        assert_eq!(results[0].format, SkillFormat::SkillMd);
     }
 }
