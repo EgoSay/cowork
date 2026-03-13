@@ -26,7 +26,7 @@ impl ToolScanner for ClaudeCodeScanner {
             if path.is_dir() {
                 let skill_md = path.join("SKILL.md");
                 if skill_md.exists() {
-                    if let Some(meta) = parse_skill_md(&skill_md) {
+                    if let Some(meta) = parse_skill_md(&skill_md, Tool::ClaudeCode) {
                         results.push(meta);
                     }
                 }
@@ -42,7 +42,7 @@ impl ToolScanner for ClaudeCodeScanner {
                     };
                     let skill_md = target.join("SKILL.md");
                     if skill_md.exists() {
-                        if let Some(meta) = parse_skill_md(&skill_md) {
+                        if let Some(meta) = parse_skill_md(&skill_md, Tool::ClaudeCode) {
                             results.push(meta);
                         }
                     }
@@ -54,8 +54,8 @@ impl ToolScanner for ClaudeCodeScanner {
     }
 }
 
-/// 解析 SKILL.md 的 YAML frontmatter
-fn parse_skill_md(path: &Path) -> Option<SkillMeta> {
+/// 解析 SKILL.md 的 YAML frontmatter，tool 参数决定 source_tool 归属
+pub(crate) fn parse_skill_md(path: &Path, tool: Tool) -> Option<SkillMeta> {
     let content = std::fs::read_to_string(path).ok()?;
     let content_hash = hash_content(content.as_bytes());
 
@@ -99,7 +99,7 @@ fn parse_skill_md(path: &Path) -> Option<SkillMeta> {
         id: path_to_id(path),
         name,
         description,
-        source_tool: Tool::ClaudeCode,
+        source_tool: tool,
         file_path: path.to_string_lossy().to_string(),
         format: SkillFormat::SkillMd,
         status: Status::Active,
@@ -123,7 +123,7 @@ mod tests {
         let skill_path = skill_dir.join("SKILL.md");
         fs::write(&skill_path, "---\nname: my-skill\ndescription: Does stuff\nversion: \"1.0\"\n---\n# Content here").unwrap();
 
-        let meta = parse_skill_md(&skill_path).unwrap();
+        let meta = parse_skill_md(&skill_path, Tool::ClaudeCode).unwrap();
         assert_eq!(meta.name, "my-skill");
         assert_eq!(meta.description, "Does stuff");
         assert_eq!(meta.version, Some("1.0".into()));
@@ -142,7 +142,7 @@ mod tests {
         let skill_path = skill_dir.join("SKILL.md");
         fs::write(&skill_path, "Just plain content, no YAML").unwrap();
 
-        let meta = parse_skill_md(&skill_path).unwrap();
+        let meta = parse_skill_md(&skill_path, Tool::ClaudeCode).unwrap();
         assert_eq!(meta.name, "fallback-name"); // 用目录名
         assert!(meta.description.is_empty());
         assert!(meta.version.is_none());
@@ -157,7 +157,7 @@ mod tests {
         // 有 --- 开头但 YAML 不闭合
         fs::write(&skill_path, "---\ninvalid yaml without closing").unwrap();
 
-        assert!(parse_skill_md(&skill_path).is_none());
+        assert!(parse_skill_md(&skill_path, Tool::ClaudeCode).is_none());
     }
 
     #[test]
