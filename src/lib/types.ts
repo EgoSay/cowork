@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 无外部依赖
- * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, DailyRecord, UsageData 等类型
+ * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, DailyRecord, UsageData, ProviderProfile, ProvidersConfig 等类型
  * [POS]: 全局 TS 类型，镜像 Rust 后端数据结构
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -63,4 +63,22 @@ export interface UsageData {
   records: DailyRecord[]
   scanned_from: string
   scanned_until: string
+}
+
+// ── Provider 供应商管理 ──────────────────────────────────
+
+export type ProviderType = "official" | "custom"
+
+export interface ProviderProfile {
+  id: string
+  name: string
+  tool: Tool
+  provider_type: ProviderType
+  base_url?: string
+  api_key?: string
+}
+
+export interface ProvidersConfig {
+  providers: ProviderProfile[]
+  active: Record<string, string>
 }

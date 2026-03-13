@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 @/components/layout/AppShell, @/features/skills 页面, @/features/usage 页面, @/lib/types
+ * [INPUT]: 依赖 @/components/layout/AppShell, @/features/skills 页面, @/features/usage 页面, @/features/providers 页面, @/lib/types
  * [OUTPUT]: 对外提供 App 根组件
  * [POS]: 应用根，管理模块路由和视图状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -8,8 +8,9 @@ import { useState, useCallback } from "react"
 import { AppShell } from "@/components/layout/AppShell"
 import { SkillsPage } from "@/features/skills/pages/SkillsPage"
 import { SkillDetailPage } from "@/features/skills/pages/SkillDetailPage"
-import type { SkillMeta } from "@/lib/types"
+import { ProvidersPage } from "@/features/providers/pages/ProvidersPage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
+import type { SkillMeta } from "@/lib/types"
 
 type View =
   | { kind: "list" }
@@ -43,6 +44,7 @@ function App() {
         </>
       )}
       {activeModule === "usage" && <UsagePage />}
+      {activeModule === "config" && <ProvidersPage />}
     </AppShell>
   )
 }

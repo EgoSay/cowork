@@ -11,12 +11,18 @@ mod types;
 
 use features::skills::commands as skills_commands;
 use features::usage::commands as usage_commands;
+use features::providers::commands as provider_commands;
+use std::sync::Mutex;
+
+/// 供应商操作的并发锁，防止 load→save 竞态
+pub struct ProviderLock(pub Mutex<()>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
+        .manage(ProviderLock(Mutex::new(())))
         .invoke_handler(tauri::generate_handler![
             skills_commands::scan_all_tools,
             skills_commands::scan_tool,
@@ -29,6 +35,12 @@ pub fn run() {
             skills_commands::get_tool_configs,
             skills_commands::update_tool_config,
             usage_commands::get_usage_data,
+            provider_commands::get_providers,
+            provider_commands::switch_provider,
+            provider_commands::add_provider,
+            provider_commands::update_provider,
+            provider_commands::remove_provider,
+            provider_commands::read_claude_env,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CoWork");

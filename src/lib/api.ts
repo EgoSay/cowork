@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { invoke } from "@tauri-apps/api/core"
-import type { SkillMeta, SkillDetail, PushResult, Tool, UsageData } from "./types"
+import type { SkillMeta, SkillDetail, PushResult, Tool, UsageData, ProvidersConfig } from "./types"
 
 export async function scanAllTools(): Promise<SkillMeta[]> {
   return invoke<SkillMeta[]>("scan_all_tools")
@@ -46,4 +46,39 @@ export async function revealInFinder(path: string): Promise<void> {
 
 export async function getUsageData(): Promise<UsageData> {
   return invoke<UsageData>("get_usage_data")
+}
+
+export async function getProviders(): Promise<ProvidersConfig> {
+  return invoke<ProvidersConfig>("get_providers")
+}
+
+export async function switchProvider(toolKey: Tool, providerId: string): Promise<void> {
+  return invoke("switch_provider", { toolKey, providerId })
+}
+
+export async function addProvider(
+  id: string,
+  name: string,
+  tool: Tool,
+  baseUrl: string,
+  apiKey: string
+): Promise<void> {
+  return invoke("add_provider", { id, name, tool, baseUrl, apiKey })
+}
+
+export async function updateProvider(
+  id: string,
+  name?: string,
+  baseUrl?: string,
+  apiKey?: string
+): Promise<void> {
+  return invoke("update_provider", { id, name, baseUrl, apiKey })
+}
+
+export async function removeProvider(id: string): Promise<void> {
+  return invoke("remove_provider", { id })
+}
+
+export async function readClaudeEnv(): Promise<[string | null, string | null]> {
+  return invoke<[string | null, string | null]>("read_claude_env")
 }
