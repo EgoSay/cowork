@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 无外部依赖
- * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, ProviderProfile, ProvidersConfig 等类型
+ * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, DailyRecord, UsageData, ProviderProfile, ProvidersConfig 等类型
  * [POS]: 全局 TS 类型，镜像 Rust 后端数据结构
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -47,7 +47,25 @@ export const TOOL_LABELS: Record<Tool, string> = {
   trae: "Trae",
 }
 
-// ---- Provider 供应商管理 ----
+// ── Usage (Token Statistics, 统一口径) ───────────────────
+
+export interface DailyRecord {
+  date: string
+  tool: Tool
+  model: string
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+}
+
+export interface UsageData {
+  records: DailyRecord[]
+  scanned_from: string
+  scanned_until: string
+}
+
+// ── Provider 供应商管理 ──────────────────────────────────
 
 export type ProviderType = "official" | "custom"
 

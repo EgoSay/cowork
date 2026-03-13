@@ -10,6 +10,7 @@ mod shared;
 mod types;
 
 use features::skills::commands;
+use features::usage::commands as usage_commands;
 use features::providers::commands as provider_commands;
 use std::sync::Mutex;
 
@@ -34,6 +35,7 @@ pub fn run() {
             commands::save_skill_content,
             commands::get_tool_configs,
             commands::update_tool_config,
+            usage_commands::get_usage_data,
             provider_commands::get_providers,
             provider_commands::switch_provider,
             provider_commands::add_provider,

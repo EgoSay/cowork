@@ -20,7 +20,7 @@ export function ModuleNav({ active, onChange }: ModuleNavProps) {
   return (
     <div className="flex items-center gap-1 px-4 py-2 border-b border-border">
       {modules.map((m) => {
-        const enabled = m.id === "skills" || m.id === "config"
+        const enabled = m.id === "skills" || m.id === "usage" || m.id === "config"
         const isActive = active === m.id
         return (
           <button
