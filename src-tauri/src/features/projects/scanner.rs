@@ -338,6 +338,7 @@ pub fn scan_all() -> Vec<ProjectData> {
 // ── 会话消息解析（详情页用） ─────────────────────────────
 
 /// 解析 JSONL 文件的完整消息列表（用于会话详情页）
+/// 只保留 user 和 assistant 消息，过滤 system/progress/内部事件
 pub fn parse_session_messages(content: &str) -> Vec<SessionMessage> {
     let mut messages = Vec::new();
     for line in content.lines() {
@@ -346,9 +347,15 @@ pub fn parse_session_messages(content: &str) -> Vec<SessionMessage> {
             Err(_) => continue,
         };
 
+        // 只展示 user 和 assistant 消息
+        match event.event_type.as_str() {
+            "user" | "assistant" => {}
+            _ => continue, // 跳过 system, progress, file-history-snapshot 等内部事件
+        }
+
         let timestamp = event.timestamp.unwrap_or_default();
 
-        let content = match &event.message {
+        let raw_content = match &event.message {
             Some(msg) => msg
                 .get("content")
                 .and_then(|v| v.as_str())
@@ -357,10 +364,18 @@ pub fn parse_session_messages(content: &str) -> Vec<SessionMessage> {
             None => String::new(),
         };
 
-        // Skip assistant messages with no meaningful content
-        if content.is_empty() && event.event_type == "assistant" {
-            continue;
-        }
+        // 跳过空内容
+        if raw_content.is_empty() { continue; }
+
+        // 清理 user 消息中的 XML 标签（Claude Code 注入的命令标记）
+        let content = if event.event_type == "user" {
+            strip_xml_tags(&raw_content)
+        } else {
+            raw_content
+        };
+
+        // 清理后仍为空则跳过
+        if content.trim().is_empty() { continue; }
 
         messages.push(SessionMessage {
             msg_type: event.event_type,
@@ -369,6 +384,26 @@ pub fn parse_session_messages(content: &str) -> Vec<SessionMessage> {
         });
     }
     messages
+}
+
+/// 去除 XML 标签，提取纯文本内容
+fn strip_xml_tags(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut in_tag = false;
+    for ch in input.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => result.push(ch),
+            _ => {}
+        }
+    }
+    // 压缩连续空白行
+    let lines: Vec<&str> = result.lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+    lines.join("\n")
 }
 
 // ── 测试 ─────────────────────────────────────────────────
@@ -566,20 +601,39 @@ mod tests {
     // ── parse_session_messages 测试 ──────────────────
 
     #[test]
-    fn parse_messages_extracts_all_types() {
+    fn parse_messages_only_user_and_assistant() {
+        // system 消息被过滤，只保留 user（assistant 在 MOCK_SESSION 中无 content 也被过滤）
         let messages = parse_session_messages(MOCK_SESSION);
-        assert!(messages.len() >= 4); // system + 3 user + some assistant
-        assert_eq!(messages[0].msg_type, "system");
-        assert_eq!(messages[1].msg_type, "user");
-        assert_eq!(messages[1].content, "implement the project scanner for cowork");
+        assert_eq!(messages.len(), 3); // 3 user messages only
+        assert!(messages.iter().all(|m| m.msg_type == "user"));
+        assert_eq!(messages[0].content, "implement the project scanner for cowork");
     }
 
     #[test]
-    fn parse_messages_skips_empty_assistant() {
-        // assistant messages in MOCK_SESSION have no "content" text field → should be skipped
-        let messages = parse_session_messages(MOCK_SESSION);
-        let assistant_msgs: Vec<_> = messages.iter().filter(|m| m.msg_type == "assistant").collect();
-        assert!(assistant_msgs.is_empty());
+    fn parse_messages_filters_internal_events() {
+        let content = concat!(
+            r#"{"type":"progress","message":{"content":""},"timestamp":"2026-03-11T14:00:00+08:00"}"#, "\n",
+            r#"{"type":"file-history-snapshot","message":{"content":"snapshot"},"timestamp":"2026-03-11T14:00:01+08:00"}"#, "\n",
+            r#"{"type":"system","message":{"content":"system prompt"},"timestamp":"2026-03-11T14:00:02+08:00"}"#, "\n",
+            r#"{"type":"user","message":{"content":"hello"},"timestamp":"2026-03-11T14:01:00+08:00"}"#, "\n",
+            r#"{"type":"assistant","message":{"content":"hi there"},"timestamp":"2026-03-11T14:02:00+08:00"}"#
+        );
+        let messages = parse_session_messages(content);
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].msg_type, "user");
+        assert_eq!(messages[1].msg_type, "assistant");
+    }
+
+    #[test]
+    fn parse_messages_strips_xml_tags_from_user() {
+        let content = concat!(
+            r#"{"type":"user","message":{"content":"<command-message>brainstorming</command-message><command-name>/brainstorm</command-name><command-args>build a feature</command-args>"},"timestamp":"2026-03-11T14:00:00+08:00"}"#
+        );
+        let messages = parse_session_messages(content);
+        assert_eq!(messages.len(), 1);
+        assert!(!messages[0].content.contains('<'));
+        assert!(messages[0].content.contains("brainstorming"));
+        assert!(messages[0].content.contains("build a feature"));
     }
 
     #[test]
