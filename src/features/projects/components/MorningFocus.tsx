@@ -32,18 +32,18 @@ export function MorningFocus({
   const values = { sessionCount, avgTurns, efficient, pitfall }
 
   return (
-    <div>
+    <div className="px-4 pt-3 pb-2 border-b border-border">
       {/* 标题 */}
-      <div className="text-[10px] uppercase tracking-widest text-text-muted mb-3">
+      <div className="text-[10px] uppercase tracking-widest text-text-muted mb-1.5">
         昨日回顾
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-4 gap-1.5 mb-2.5">
         {STATS.map(s => (
-          <div key={s.key} className="bg-bg-card rounded-lg p-3 text-center">
-            <div className="text-lg font-semibold text-text">{values[s.key]}</div>
-            <div className="text-[10px] text-text-muted mt-0.5">{s.label}</div>
+          <div key={s.key} className="bg-bg-card rounded-md px-2 py-1.5 text-center">
+            <div className="text-sm font-semibold text-text">{values[s.key]}</div>
+            <div className="text-[9px] text-text-muted">{s.label}</div>
           </div>
         ))}
       </div>

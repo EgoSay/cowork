@@ -111,42 +111,44 @@ export function TokenHeatmap() {
   }, [grid])
 
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-widest text-text-muted mb-3">
+    <div className="px-4 py-2 border-b border-border">
+      <div className="text-[10px] uppercase tracking-widest text-text-muted mb-1.5">
         Token 热力图
       </div>
 
-      <div className="flex gap-1">
+      <div className="flex gap-[3px]">
         {/* 左侧日标签 */}
-        <div className="flex flex-col gap-1 pr-1">
+        <div className="flex flex-col gap-[3px] pr-0.5">
           {DAY_LABELS.map((label, i) => (
-            <div key={i} className="h-3 text-[9px] text-text-muted leading-3">
+            <div key={i} className="h-2.5 text-[8px] text-text-muted leading-[10px]">
               {label}
             </div>
           ))}
         </div>
 
         {/* 网格 */}
-        {grid.map((col, ci) => (
-          <div key={ci} className="flex flex-col gap-1">
-            {col.map(cell => {
-              const level = getLevel(cell.total, p25, p50, p75)
-              return (
-                <div
-                  key={cell.key}
-                  title={`${cell.key}: ${cell.total.toLocaleString()} tokens`}
-                  className={`w-3 h-3 rounded-sm ${LEVELS[level]}`}
-                />
-              )
-            })}
-          </div>
-        ))}
+        <div className="flex-1 flex gap-[3px]">
+          {grid.map((col, ci) => (
+            <div key={ci} className="flex-1 flex flex-col gap-[3px]">
+              {col.map(cell => {
+                const level = getLevel(cell.total, p25, p50, p75)
+                return (
+                  <div
+                    key={cell.key}
+                    title={`${cell.key}: ${cell.total.toLocaleString()} tokens`}
+                    className={`h-2.5 rounded-[2px] ${LEVELS[level]}`}
+                  />
+                )
+              })}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 底部周标签 */}
-      <div className="flex gap-1 mt-1" style={{ paddingLeft: "1.25rem" }}>
+      <div className="flex gap-[3px] mt-0.5 pl-4">
         {weekLabels.map((label, i) => (
-          <div key={i} className="w-3 text-[8px] text-text-muted text-center">
+          <div key={i} className="flex-1 text-[8px] text-text-muted">
             {label}
           </div>
         ))}
