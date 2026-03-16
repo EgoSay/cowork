@@ -291,9 +291,9 @@ mod tests {
         let old_file = project.join("session-old.jsonl");
         std::fs::write(&old_file, content).unwrap();
 
-        // 强制 mtime 为 60 天前
+        // 强制 mtime 为 120 天前（超出 LOOKBACK_DAYS=90）
         let old_time = filetime::FileTime::from_system_time(
-            std::time::SystemTime::now() - std::time::Duration::from_secs(60 * 86400)
+            std::time::SystemTime::now() - std::time::Duration::from_secs(120 * 86400)
         );
         filetime::set_file_mtime(&old_file, old_time).unwrap();
 

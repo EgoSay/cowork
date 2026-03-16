@@ -330,9 +330,9 @@ mod tests {
             r#"{"type":"turn_context","timestamp":"2025-01-01T10:00:00Z","payload":{"model":"old-model"}}"#, "\n",
             r#"{"type":"event_msg","timestamp":"2025-01-01T10:01:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":50,"total_tokens":150},"last_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":50,"total_tokens":150}}}}"#
         )).unwrap();
-        // 强制 mtime 为 60 天前，确保 mtime 过滤生效
+        // 强制 mtime 为 120 天前（超出 LOOKBACK_DAYS=90），确保 mtime 过滤生效
         let old_time = filetime::FileTime::from_system_time(
-            std::time::SystemTime::now() - std::time::Duration::from_secs(60 * 86400)
+            std::time::SystemTime::now() - std::time::Duration::from_secs(120 * 86400)
         );
         filetime::set_file_mtime(&old_file, old_time).unwrap();
 

@@ -13,7 +13,8 @@ use std::collections::HashMap;
 
 // ── 扫描窗口常量（单一真相源）────────────────────────────
 // 子模块 claude_code / codex 通过 super::LOOKBACK_DAYS 引用
-pub(crate) const LOOKBACK_DAYS: u64 = 31;
+// 90 天覆盖近 3 个月，确保月度统计与 ccusage 对齐
+pub(crate) const LOOKBACK_DAYS: u64 = 90;
 
 // ── 共享：token 四字段桶（消除 tuple magic） ──────────────
 
@@ -81,11 +82,11 @@ mod tests {
     }
 
     #[test]
-    fn scan_window_is_30_day_range() {
+    fn scan_window_is_89_day_range() {
         let tz = tz();
         let now = tz.with_ymd_and_hms(2026, 3, 12, 14, 0, 0).unwrap();
         let (from, until) = scan_window_dates(&now);
-        assert_eq!(from, "2026-02-10");  // 30 days before (first fully scanned)
+        assert_eq!(from, "2025-12-13");  // 89 days before (first fully scanned)
         assert_eq!(until, "2026-03-12");
     }
 
@@ -99,17 +100,17 @@ mod tests {
             }
         }
         let mut records = vec![
-            rec("2026-02-09"),  // before window → clipped
-            rec("2026-02-10"),  // boundary (in)
+            rec("2025-12-12"),  // before window → clipped
+            rec("2025-12-13"),  // boundary (in)
             rec("2026-03-05"),  // middle (in)
             rec("2026-03-12"),  // boundary (in)
             rec("2026-03-13"),  // after window → clipped
         ];
-        let from = "2026-02-10".to_string();
+        let from = "2025-12-13".to_string();
         let until = "2026-03-12".to_string();
         records.retain(|r| r.date >= from && r.date <= until);
         assert_eq!(records.len(), 3);
-        assert_eq!(records[0].date, "2026-02-10");
+        assert_eq!(records[0].date, "2025-12-13");
         assert_eq!(records[1].date, "2026-03-05");
         assert_eq!(records[2].date, "2026-03-12");
     }
