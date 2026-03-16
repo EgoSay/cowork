@@ -77,10 +77,10 @@
 | title | String | 第一条 `user` 消息内容（截断 120 字符） |
 | started_at | i64 | 第一条消息的 timestamp（Unix ms） |
 | ended_at | i64 | 最后一条消息的 timestamp |
-| duration_secs | u64 | `ended_at - started_at` |
+| duration_secs | u64 | `max(0, ended_at - started_at)`，防御损坏时间戳 |
 | message_count | usize | 总消息数 |
 | user_message_count | usize | `type=user` 的消息数 |
-| turn_count | usize | user→assistant 轮次对数 |
+| turn_count | usize | `min(user_message_count, assistant_message_count)` 近似 |
 | has_subagents | bool | 是否存在 subagents 子目录 |
 
 **SessionAnnotation** — 用户标注
@@ -108,8 +108,24 @@ created_at = 1710100000
 ```
 
 **缓存文件**：`~/.cowork/projects_cache.json`
-- 每个 JSONL 文件的 mtime + 解析结果
+
+缓存 schema：
+```json
+{
+  "entries": {
+    "/abs/path/to/session.jsonl": {
+      "mtime_secs": 1710000000,
+      "meta": { /* SessionMeta 完整结构 */ }
+    }
+  }
+}
+```
+
+- 键：JSONL 文件绝对路径，值：mtime + 对应的 SessionMeta
+- `scan_projects` 一次性返回 `Vec<ProjectData>`（含 `ProjectMeta` + `Vec<SessionMeta>`），
+  前端持有全部数据，`get_project_sessions` 命令不再需要
 - 增量扫描：仅重新解析 mtime 变化的文件
+- 读写 cache 与 annotations 共享同一个 `ProjectsLock(Mutex<()>)`
 
 ---
 
@@ -169,25 +185,51 @@ remove_annotation(session_id):
 
 ### 2.4 Tauri Commands
 
-```rust
-#[tauri::command]
-async fn scan_projects() -> Result<Vec<ProjectMeta>, String>
+并发控制：`ProjectsLock(Mutex<()>)` 管理 cache + annotations 的读写，
+注册为 Tauri managed state（延续 Provider 模块的 `ProviderLock` 模式）。
 
+```rust
+// 返回 ProjectData = (ProjectMeta, Vec<SessionMeta>)，一次扫描全部返回
 #[tauri::command]
-async fn get_project_sessions(dir_path: String) -> Result<Vec<SessionMeta>, String>
+async fn scan_projects(
+    lock: State<'_, ProjectsLock>,
+) -> Result<Vec<ProjectData>, String>
 
 #[tauri::command]
 async fn annotate_session(
+    lock: State<'_, ProjectsLock>,
     session_id: String,
     tags: Vec<String>,
     note: Option<String>,
 ) -> Result<(), String>
 
 #[tauri::command]
-async fn get_annotations() -> Result<HashMap<String, SessionAnnotation>, String>
+async fn get_annotations(
+    lock: State<'_, ProjectsLock>,
+) -> Result<HashMap<String, SessionAnnotation>, String>
 
 #[tauri::command]
-async fn remove_annotation(session_id: String) -> Result<(), String>
+async fn remove_annotation(
+    lock: State<'_, ProjectsLock>,
+    session_id: String,
+) -> Result<(), String>
+```
+
+### 2.5 lib.rs 集成
+
+```rust
+// lib.rs 新增
+use features::projects::commands as project_commands;
+
+// Builder 新增 managed state + commands
+.manage(ProjectsLock(Mutex::new(())))
+.invoke_handler(tauri::generate_handler![
+    // ... 现有 commands ...
+    project_commands::scan_projects,
+    project_commands::annotate_session,
+    project_commands::get_annotations,
+    project_commands::remove_annotation,
+])
 ```
 
 ---
@@ -207,8 +249,74 @@ src/features/projects/
 │   ├── FlashCard.tsx           # 新会话弹出闪卡
 │   ├── TagFilter.tsx           # 标签筛选栏
 │   └── TimeDistribution.tsx    # 时间分配比例条
-└── hooks/
-    └── useProjects.ts          # 核心 reducer hook
+├── hooks/
+│   └── useProjects.ts          # 核心 reducer hook
+└── lib.ts                      # 工具函数：相对时间格式化、标签常量、分布计算
+```
+
+### 3.1.1 TypeScript 类型（添加到 `src/lib/types.ts`）
+
+```typescript
+// ── Projects (进化引擎) ─────────────────────────────
+
+
+export interface ProjectMeta {
+  id: string
+  name: string
+  dir_name: string
+  dir_path: string
+  session_count: number
+  last_active: number
+  total_sessions_duration_secs: number
+}
+
+export interface SessionMeta {
+  id: string
+  project_id: string
+  title: string
+  started_at: number
+  ended_at: number
+  duration_secs: number
+  message_count: number
+  user_message_count: number
+  turn_count: number
+  has_subagents: boolean
+}
+
+export interface SessionAnnotation {
+  tags: string[]
+  note: string | null
+  created_at: number
+}
+
+export interface ProjectData {
+  project: ProjectMeta
+  sessions: SessionMeta[]
+}
+```
+
+### 3.1.2 API 封装（添加到 `src/lib/api.ts`）
+
+```typescript
+export async function scanProjects(): Promise<ProjectData[]> {
+  return invoke<ProjectData[]>("scan_projects")
+}
+
+export async function annotateSession(
+  sessionId: string,
+  tags: string[],
+  note: string | null,
+): Promise<void> {
+  return invoke("annotate_session", { sessionId, tags, note })
+}
+
+export async function getAnnotations(): Promise<Record<string, SessionAnnotation>> {
+  return invoke<Record<string, SessionAnnotation>>("get_annotations")
+}
+
+export async function removeAnnotation(sessionId: string): Promise<void> {
+  return invoke("remove_annotation", { sessionId })
+}
 ```
 
 ### 3.2 useProjects Hook（单真相源）
@@ -261,8 +369,10 @@ interface State {
 
 ### 3.4 交互：会话闪卡
 
-**触发时机**：Projects 页面获得焦点时（re-entry），对比缓存的会话列表，
-检测到新增会话 → 弹出闪卡。
+**触发时机**：`active` prop 从 `false` 变为 `true` 时（re-entry，延续 Usage 的
+`backgroundRefresh` 模式），调用 `scanProjects` 获取最新数据，对比 hook state
+中已有的 session id 集合，新增的 session 中取最近一条 → 弹出闪卡。
+多条新增只展示最近一条，其余可在列表中手动标注。
 
 **闪卡内容**：
 ```
