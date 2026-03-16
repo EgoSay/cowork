@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 serde_json, chrono, types::{SessionMeta,SessionMessage,ProjectMeta,ProjectData,ProjectsCache,CacheEntry}, shared::fs_utils::path_to_id
+ * [INPUT]: 依赖 serde_json, chrono, types::{SessionMeta,SessionMessage,ProjectMeta,ProjectData,ProjectsCache,CacheEntry}, shared::fs_utils::{cowork_dir,file_mtime_secs,path_to_id}
  * [OUTPUT]: 对外提供 parse_session_meta(), parse_session_messages(), extract_project_name(), scan_from_dir(), scan_all()
  * [POS]: projects 的核心扫描器——JSONL 解析 + 目录遍历 + 缓存加速
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::types::{CacheEntry, ProjectData, ProjectMeta, ProjectsCache, SessionMessage, SessionMeta};
-use crate::shared::fs_utils::path_to_id;
+use crate::shared::fs_utils::{cowork_dir, file_mtime_secs, path_to_id};
 use chrono::DateTime;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -140,28 +140,7 @@ pub fn extract_project_name(dir_name: &str) -> String {
 // ── 缓存操作 ─────────────────────────────────────────────
 
 fn cache_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".cowork")
-        .join("projects_cache.json")
-}
-
-fn load_cache() -> ProjectsCache {
-    let path = cache_path();
-    std::fs::read_to_string(&path)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok())
-        .unwrap_or_default()
-}
-
-fn save_cache(cache: &ProjectsCache) {
-    let path = cache_path();
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    if let Ok(json) = serde_json::to_string(cache) {
-        let _ = std::fs::write(&path, json);
-    }
+    cowork_dir().join("projects_cache.json")
 }
 
 // ── 可测试的缓存操作（接受显式路径） ─────────────────────
@@ -182,21 +161,13 @@ fn save_cache_to(path: &Path, cache: &ProjectsCache) {
     }
 }
 
-// ── 获取文件 mtime（秒级精度） ───────────────────────────
-
-fn file_mtime_secs(path: &Path) -> Option<i64> {
-    let meta = std::fs::metadata(path).ok()?;
-    let mtime = meta.modified().ok()?;
-    let dur = mtime.duration_since(std::time::UNIX_EPOCH).ok()?;
-    Some(dur.as_secs() as i64)
-}
-
 // ── 目录扫描核心 ─────────────────────────────────────────
 
 /// 从指定目录扫描项目数据（可测试版本，接受缓存路径）
 pub fn scan_from_dir_with_cache(base: &Path, cache_path: &Path) -> Vec<ProjectData> {
     let mut cache = load_cache_from(cache_path);
     let mut results: Vec<ProjectData> = Vec::new();
+    let mut seen_keys = std::collections::HashSet::new();
 
     let entries = match std::fs::read_dir(base) {
         Ok(e) => e,
@@ -240,6 +211,7 @@ pub fn scan_from_dir_with_cache(base: &Path, cache_path: &Path) -> Vec<ProjectDa
             }
 
             let file_key = file_path.to_string_lossy().to_string();
+            seen_keys.insert(file_key.clone());
             let mtime = file_mtime_secs(&file_path).unwrap_or(0);
 
             // 检查缓存
@@ -314,6 +286,9 @@ pub fn scan_from_dir_with_cache(base: &Path, cache_path: &Path) -> Vec<ProjectDa
 
     // 按 last_active 降序排列
     results.sort_by(|a, b| b.project.last_active.cmp(&a.project.last_active));
+
+    // 清除过期缓存条目
+    cache.entries.retain(|k, _| seen_keys.contains(k));
 
     // 保存缓存
     save_cache_to(cache_path, &cache);

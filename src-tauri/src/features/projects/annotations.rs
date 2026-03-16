@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖 serde/toml 序列化, chrono 时间戳, types::SessionAnnotation
+ * [INPUT]: 依赖 serde/toml 序列化, chrono 时间戳, types::SessionAnnotation, shared::fs_utils::cowork_dir
  * [OUTPUT]: 对外提供 load(), save(), upsert(), remove() 标注 CRUD
  * [POS]: projects 的标注子系统，管理 tags/notes 到 ~/.cowork/annotations.toml 的持久化
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::types::SessionAnnotation;
+use crate::shared::fs_utils::cowork_dir;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -20,10 +21,7 @@ struct AnnotationsFile {
 // ── 路径 ─────────────────────────────────────────────────
 
 fn annotations_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".cowork")
-        .join("annotations.toml")
+    cowork_dir().join("annotations.toml")
 }
 
 // ── 可测试的核心操作（接受显式路径） ─────────────────────
@@ -66,7 +64,7 @@ pub fn upsert(session_id: &str, tags: Vec<String>, note: Option<String>) -> Resu
     let created_at = map
         .get(session_id)
         .map(|existing| existing.created_at.clone())
-        .unwrap_or_else(|| chrono::Utc::now().timestamp().to_string());
+        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
     map.insert(
         session_id.to_string(),
         SessionAnnotation {

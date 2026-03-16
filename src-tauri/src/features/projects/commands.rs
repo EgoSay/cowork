@@ -32,6 +32,9 @@ pub async fn get_session_messages(
 /// 恢复会话：在终端中打开 claude --continue
 #[tauri::command]
 pub async fn resume_session(session_id: String) -> Result<(), String> {
+    if !session_id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        return Err("Invalid session ID format".into());
+    }
     std::process::Command::new("osascript")
         .arg("-e")
         .arg(format!(

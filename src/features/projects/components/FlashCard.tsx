@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖 @/lib/types::SessionMeta, ../lib::TAG_OPTIONS/formatTime
+ * [INPUT]: 依赖 @/lib/types::SessionMeta, ../lib::formatTime, ./TagToggleGroup
  * [OUTPUT]: 对外提供 FlashCard 组件
  * [POS]: 新会话标注弹窗，modal overlay，被 ProjectsPage 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { useState } from "react"
 import type { SessionMeta } from "@/lib/types"
-import { TAG_OPTIONS, formatTime } from "../lib"
+import { formatTime } from "../lib"
+import { TagToggleGroup } from "./TagToggleGroup"
 
 interface FlashCardProps {
   session: SessionMeta
@@ -54,23 +55,8 @@ export function FlashCard({ session, projectName, onAnnotate, onDismiss }: Flash
         )}
 
         {/* 标签按钮 */}
-        <div className="flex gap-1.5 mb-3">
-          {TAG_OPTIONS.map(tag => {
-            const active = selectedTags.includes(tag.id)
-            return (
-              <button
-                key={tag.id}
-                onClick={() => toggleTag(tag.id)}
-                className={`px-3 py-1 rounded-full text-xs transition-colors ${
-                  active
-                    ? `${tag.color} bg-text/5 border border-current`
-                    : "text-text-muted border border-border hover:text-text-secondary"
-                }`}
-              >
-                {tag.label}
-              </button>
-            )
-          })}
+        <div className="mb-3">
+          <TagToggleGroup activeTags={selectedTags} onToggle={toggleTag} />
         </div>
 
         {/* 备注区 */}

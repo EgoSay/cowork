@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 @/lib/api::getSessionMessages/resumeSession, @/lib/types::SessionMeta/SessionMessage/SessionAnnotation, ../lib::TAG_OPTIONS/formatTime
+ * [INPUT]: 依赖 @/lib/api::getSessionMessages/resumeSession, @/lib/types::SessionMeta/SessionMessage/SessionAnnotation, ../lib::formatTime, ./TagToggleGroup
  * [OUTPUT]: 对外提供 SessionDetail 组件
  * [POS]: 会话详情页——完整对话展示 + 恢复会话按钮
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -7,7 +7,8 @@
 import { useEffect, useState } from "react"
 import { getSessionMessages, resumeSession } from "@/lib/api"
 import type { SessionMeta, SessionMessage, SessionAnnotation } from "@/lib/types"
-import { TAG_OPTIONS, formatTime } from "../lib"
+import { formatTime } from "../lib"
+import { TagToggleGroup } from "./TagToggleGroup"
 
 interface SessionDetailProps {
   session: SessionMeta
@@ -56,8 +57,6 @@ export function SessionDetail({
     onAnnotate(next, annotation?.note ?? null)
   }
 
-  const activeTags = new Set(annotation?.tags ?? [])
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── 顶栏 ──────────────────────────────────── */}
@@ -100,22 +99,7 @@ export function SessionDetail({
       {/* ── 底部标签 ──────────────────────────────── */}
       <div className="flex items-center gap-2 px-4 py-2 border-t border-border shrink-0">
         <span className="text-[10px] text-text-muted mr-1">标注:</span>
-        {TAG_OPTIONS.map(tag => {
-          const active = activeTags.has(tag.id)
-          return (
-            <button
-              key={tag.id}
-              onClick={() => toggleTag(tag.id)}
-              className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
-                active
-                  ? `${tag.color} bg-text/5`
-                  : "text-text-muted hover:text-text-secondary"
-              }`}
-            >
-              {tag.label}
-            </button>
-          )
-        })}
+        <TagToggleGroup activeTags={annotation?.tags ?? []} onToggle={toggleTag} />
       </div>
     </div>
   )

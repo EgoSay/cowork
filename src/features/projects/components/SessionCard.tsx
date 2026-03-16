@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 @/lib/types::SessionMeta/SessionAnnotation, ../lib::TAG_OPTIONS/formatTime
+ * [INPUT]: 依赖 @/lib/types::SessionMeta/SessionAnnotation, ../lib::formatTime, ./TagToggleGroup
  * [OUTPUT]: 对外提供 SessionCard 组件
  * [POS]: 会话列表中的单个会话卡片，含内联标注按钮
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import type { SessionMeta, SessionAnnotation } from "@/lib/types"
-import { TAG_OPTIONS, formatTime } from "../lib"
+import { formatTime } from "../lib"
+import { TagToggleGroup } from "./TagToggleGroup"
 
 interface SessionCardProps {
   session: SessionMeta
@@ -22,8 +23,6 @@ export function SessionCard({ session, annotation, onAnnotate, onClick }: Sessio
       : [...current, tagId]
     onAnnotate(next, annotation?.note ?? null)
   }
-
-  const activeTags = new Set(annotation?.tags ?? [])
 
   return (
     <div
@@ -44,23 +43,8 @@ export function SessionCard({ session, annotation, onAnnotate, onClick }: Sessio
       </div>
 
       {/* 标签按钮 */}
-      <div className="flex gap-1.5 mt-2">
-        {TAG_OPTIONS.map(tag => {
-          const active = activeTags.has(tag.id)
-          return (
-            <button
-              key={tag.id}
-              onClick={e => { e.stopPropagation(); toggleTag(tag.id) }}
-              className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
-                active
-                  ? `${tag.color} bg-text/5`
-                  : "text-text-muted hover:text-text-secondary"
-              }`}
-            >
-              {tag.label}
-            </button>
-          )
-        })}
+      <div className="mt-2">
+        <TagToggleGroup activeTags={annotation?.tags ?? []} onToggle={toggleTag} />
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 @/lib/api::getUsageData, @/lib/types::UsageData
+ * [INPUT]: 依赖 @/lib/api::getUsageData, @/lib/types::UsageData, @/features/usage/lib::recordTotal, ../lib::localDateString
  * [OUTPUT]: 对外提供 TokenHeatmap 组件
  * [POS]: Token 消耗强度可视化（GitHub contribution graph 风格热力图），自取数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -7,6 +7,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { getUsageData } from "@/lib/api"
 import type { UsageData } from "@/lib/types"
+import { recordTotal } from "@/features/usage/lib"
+import { localDateString } from "../lib"
 
 // ── 常量 ────────────────────────────────────────────
 
@@ -17,10 +19,6 @@ const STEP = CELL + GAP
 const WEEKS = 13
 
 // ── 工具函数 ────────────────────────────────────────
-
-function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
 
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0
@@ -40,8 +38,7 @@ export function TokenHeatmap() {
     if (!data) return new Map<string, number>()
     const map = new Map<string, number>()
     for (const r of data.records) {
-      const sum = r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens
-      map.set(r.date, (map.get(r.date) ?? 0) + sum)
+      map.set(r.date, (map.get(r.date) ?? 0) + recordTotal(r))
     }
     return map
   }, [data])
@@ -62,7 +59,7 @@ export function TokenHeatmap() {
       d.setDate(startDate.getDate() + i)
       const col = Math.floor(i / 7)
       const row = i % 7
-      const key = dateKey(d)
+      const key = localDateString(d.toISOString())
 
       cells.push({ key, total: dailyTotals.get(key) ?? 0, col, row, future: d > today })
 
