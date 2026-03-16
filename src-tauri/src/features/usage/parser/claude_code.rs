@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 serde_json, chrono, glob, dirs, crate::types::Tool, super::{types, timestamp_to_date, Accum}
  * [OUTPUT]: 对外提供 parse() -> Vec<DailyRecord>
- * [POS]: Claude Code 会话解析器，读取 ~/.claude/projects/**/*.jsonl (含 subagents)
+ * [POS]: Claude Code 会话解析器，读取 ~/.claude/projects/**/*.jsonl (含 subagents), 按 messageId:requestId 去重 (first-wins, 对齐 ccusage)
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use super::super::types::DailyRecord;
@@ -20,6 +20,8 @@ struct SessionEvent {
     event_type: String,
     message: Option<serde_json::Value>,
     timestamp: Option<String>,
+    #[serde(rename = "requestId")]
+    request_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -42,25 +44,18 @@ struct ClaudeUsage {
 }
 
 // ── 核心：解析单个 session 文件 ────────────────────────
-// 同一个 message.id 会连续出现 2-10 次（流式中间态），
-// 只有最后一条携带完整 usage。先按 id 保留最后一条，
-// 再做 (date, model) 聚合。
+// 流式传输时同一 API 请求（messageId:requestId）写入 2-10 条事件，
+// 中间态 output_tokens 逐步累积，只有首条的 usage 代表初始计费快照。
+// 对齐 ccusage 去重逻辑：按 messageId:requestId 去重，keep first。
 
-// 中间结构: 按 message.id 保留最后一条
-struct MessageSnapshot {
-    date: String,
-    model: String,
-    usage: ClaudeUsage,
-}
+use std::collections::HashSet;
 
 fn parse_session_content<Tz: TimeZone>(content: &str, tz: &Tz) -> Accum
 where
     Tz::Offset: std::fmt::Display,
 {
-    // Phase 1: 按 message.id 保留最后一条（流式去重）
-    // 同一个 id 出现 2-10 次，前几条是中间态，最后一条有完整 usage
-    let mut snapshots: HashMap<String, MessageSnapshot> = HashMap::new();
-    let mut anon_counter: usize = 0;
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut accum: Accum = HashMap::new();
 
     for line in content.lines() {
         let event: SessionEvent = match serde_json::from_str(line) {
@@ -89,26 +84,18 @@ where
             .unwrap_or_default();
         if date.is_empty() { continue; }
 
-        // 有 id 则按 id 去重（覆盖前一条）；无 id 则视为独立消息
-        let key = match msg.id {
-            Some(id) => id,
-            None => {
-                anon_counter += 1;
-                format!("__anon_{}", anon_counter)
-            }
-        };
+        // 按 messageId:requestId 去重，keep first（对齐 ccusage）
+        // 两者都存在时才去重；缺失则视为独立条目
+        if let (Some(mid), Some(rid)) = (&msg.id, &event.request_id) {
+            let dedup_key = format!("{}:{}", mid, rid);
+            if !seen.insert(dedup_key) { continue; }
+        }
 
-        snapshots.insert(key, MessageSnapshot { date, model, usage });
-    }
-
-    // Phase 2: 将去重后的快照聚合为 (date, model) → TokenBucket
-    let mut accum: Accum = HashMap::new();
-    for snapshot in snapshots.into_values() {
-        let entry = accum.entry((snapshot.date, snapshot.model)).or_default();
-        entry.input += snapshot.usage.input_tokens;
-        entry.output += snapshot.usage.output_tokens;
-        entry.cache_read += snapshot.usage.cache_read_input_tokens;
-        entry.cache_write += snapshot.usage.cache_creation_input_tokens;
+        let entry = accum.entry((date, model)).or_default();
+        entry.input += usage.input_tokens;
+        entry.output += usage.output_tokens;
+        entry.cache_read += usage.cache_read_input_tokens;
+        entry.cache_write += usage.cache_creation_input_tokens;
     }
 
     accum
@@ -187,11 +174,12 @@ mod tests {
         FixedOffset::east_opt(8 * 3600).unwrap()
     }
 
+    // 不同 requestId 的两条 assistant，各自计入
     const MOCK_SESSION: &str = concat!(
         r#"{"type":"system","message":{"content":"..."},"timestamp":"2026-03-11T14:00:00+08:00"}"#, "\n",
         r#"{"type":"user","message":{"content":"hello"},"timestamp":"2026-03-11T14:01:00+08:00"}"#, "\n",
-        r#"{"type":"assistant","message":{"id":"msg_01","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":50,"cache_creation_input_tokens":2000,"cache_read_input_tokens":5000}},"timestamp":"2026-03-11T14:02:00+08:00"}"#, "\n",
-        r#"{"type":"assistant","message":{"id":"msg_02","model":"claude-opus-4-6","usage":{"input_tokens":80,"output_tokens":30,"cache_creation_input_tokens":0,"cache_read_input_tokens":6000}},"timestamp":"2026-03-11T15:00:00+08:00"}"#
+        r#"{"type":"assistant","requestId":"req_01","message":{"id":"msg_01","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":50,"cache_creation_input_tokens":2000,"cache_read_input_tokens":5000}},"timestamp":"2026-03-11T14:02:00+08:00"}"#, "\n",
+        r#"{"type":"assistant","requestId":"req_02","message":{"id":"msg_02","model":"claude-opus-4-6","usage":{"input_tokens":80,"output_tokens":30,"cache_creation_input_tokens":0,"cache_read_input_tokens":6000}},"timestamp":"2026-03-11T15:00:00+08:00"}"#
     );
 
     #[test]
@@ -206,32 +194,31 @@ mod tests {
     }
 
     #[test]
-    fn parse_session_deduplicates_by_message_id() {
-        // 同一个 message.id 出现 3 次（流式中间态 → 最终态）
-        // output_tokens: 10 → 50 → 200，只取最后一条的 200
+    fn parse_session_deduplicates_by_message_request_id() {
+        // 同一 messageId:requestId 出现 3 次（流式中间态），keep first
+        // output_tokens: 10 → 50 → 200，只取首条的 10
         let content = concat!(
-            r#"{"type":"assistant","message":{"id":"msg_dup","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":1744}},"timestamp":"2026-03-11T14:00:00+08:00"}"#, "\n",
-            r#"{"type":"assistant","message":{"id":"msg_dup","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":0,"cache_creation_input_tokens":1744}},"timestamp":"2026-03-11T14:00:01+08:00"}"#, "\n",
-            r#"{"type":"assistant","message":{"id":"msg_dup","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":200,"cache_read_input_tokens":5000,"cache_creation_input_tokens":1744}},"timestamp":"2026-03-11T14:00:02+08:00"}"#, "\n",
-            r#"{"type":"assistant","message":{"id":"msg_other","model":"claude-opus-4-6","usage":{"input_tokens":50,"output_tokens":30,"cache_read_input_tokens":3000,"cache_creation_input_tokens":0}},"timestamp":"2026-03-11T14:05:00+08:00"}"#
+            r#"{"type":"assistant","requestId":"req_dup","message":{"id":"msg_dup","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":1744}},"timestamp":"2026-03-11T14:00:00+08:00"}"#, "\n",
+            r#"{"type":"assistant","requestId":"req_dup","message":{"id":"msg_dup","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":0,"cache_creation_input_tokens":1744}},"timestamp":"2026-03-11T14:00:01+08:00"}"#, "\n",
+            r#"{"type":"assistant","requestId":"req_dup","message":{"id":"msg_dup","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":200,"cache_read_input_tokens":5000,"cache_creation_input_tokens":1744}},"timestamp":"2026-03-11T14:00:02+08:00"}"#, "\n",
+            r#"{"type":"assistant","requestId":"req_other","message":{"id":"msg_other","model":"claude-opus-4-6","usage":{"input_tokens":50,"output_tokens":30,"cache_read_input_tokens":3000,"cache_creation_input_tokens":0}},"timestamp":"2026-03-11T14:05:00+08:00"}"#
         );
         let accum = parse_session_content(content, &tz());
         let key = ("2026-03-11".to_string(), "claude-opus-4-6".to_string());
         let b = &accum[&key];
-        assert_eq!(b.output, 230);  // 200 (msg_dup final) + 30 (msg_other)
-        assert_eq!(b.input, 150);   // 100 (msg_dup final) + 50 (msg_other)
+        assert_eq!(b.output, 40);   // 10 (msg_dup first) + 30 (msg_other)
+        assert_eq!(b.input, 150);   // 100 (msg_dup first) + 50 (msg_other)
     }
 
     #[test]
     fn parse_session_handles_midnight_crossing() {
         // +08:00 下 23:30 和次日 00:30 跨天，注入时区后可断言精确日期
         let content = concat!(
-            r#"{"type":"assistant","message":{"id":"msg_a","model":"claude-opus-4-6","usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2026-03-11T23:30:00+08:00"}"#, "\n",
-            r#"{"type":"assistant","message":{"id":"msg_b","model":"claude-opus-4-6","usage":{"input_tokens":20,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2026-03-12T00:30:00+08:00"}"#
+            r#"{"type":"assistant","requestId":"req_a","message":{"id":"msg_a","model":"claude-opus-4-6","usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2026-03-11T23:30:00+08:00"}"#, "\n",
+            r#"{"type":"assistant","requestId":"req_b","message":{"id":"msg_b","model":"claude-opus-4-6","usage":{"input_tokens":20,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2026-03-12T00:30:00+08:00"}"#
         );
         let accum = parse_session_content(content, &tz());
         assert_eq!(accum.len(), 2);
-        // 精确断言日期桶
         let day1 = ("2026-03-11".to_string(), "claude-opus-4-6".to_string());
         let day2 = ("2026-03-12".to_string(), "claude-opus-4-6".to_string());
         assert_eq!(accum[&day1].input, 10);
@@ -256,7 +243,7 @@ mod tests {
         let content = concat!(
             "garbage line\n",
             r#"{"type":"user","message":{"content":"hi"},"timestamp":"2026-03-11T14:00:00+08:00"}"#, "\n",
-            r#"{"type":"assistant","message":{"id":"msg_x","model":"claude-opus-4-6","usage":{"input_tokens":10,"output_tokens":5}},"timestamp":"2026-03-11T14:01:00+08:00"}"#
+            r#"{"type":"assistant","requestId":"req_x","message":{"id":"msg_x","model":"claude-opus-4-6","usage":{"input_tokens":10,"output_tokens":5}},"timestamp":"2026-03-11T14:01:00+08:00"}"#
         );
         let accum = parse_session_content(content, &tz());
         assert_eq!(accum.len(), 1);
@@ -280,12 +267,12 @@ mod tests {
         let project = dir.path().join("project-abc");
         std::fs::create_dir_all(&project).unwrap();
 
-        let main_session = r#"{"type":"assistant","message":{"id":"msg_main","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2026-03-11T14:00:00+08:00"}"#;
+        let main_session = r#"{"type":"assistant","requestId":"req_main","message":{"id":"msg_main","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2026-03-11T14:00:00+08:00"}"#;
         std::fs::write(project.join("session-1.jsonl"), main_session).unwrap();
 
         let subagent_dir = project.join("session-1").join("subagents");
         std::fs::create_dir_all(&subagent_dir).unwrap();
-        let sub_session = r#"{"type":"assistant","message":{"id":"msg_sub","model":"claude-haiku-4-5","usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2026-03-11T15:00:00+08:00"}"#;
+        let sub_session = r#"{"type":"assistant","requestId":"req_sub","message":{"id":"msg_sub","model":"claude-haiku-4-5","usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2026-03-11T15:00:00+08:00"}"#;
         std::fs::write(subagent_dir.join("agent-abc.jsonl"), sub_session).unwrap();
 
         let records = parse_from_dir(dir.path());
@@ -300,7 +287,7 @@ mod tests {
         let project = dir.path().join("project-old");
         std::fs::create_dir_all(&project).unwrap();
 
-        let content = r#"{"type":"assistant","message":{"id":"msg_old","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2025-01-01T10:00:00+08:00"}"#;
+        let content = r#"{"type":"assistant","requestId":"req_old","message":{"id":"msg_old","model":"claude-opus-4-6","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"2025-01-01T10:00:00+08:00"}"#;
         let old_file = project.join("session-old.jsonl");
         std::fs::write(&old_file, content).unwrap();
 
