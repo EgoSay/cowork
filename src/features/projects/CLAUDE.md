@@ -13,5 +13,6 @@ Project session history & annotation engine. Scans Claude Code JSONL sessions, g
 - `components/MorningFocus.tsx`: 昨日回顾面板，4 统计卡 + 时间分布
 - `components/TokenHeatmap.tsx`: 28 天 token 消耗热力图，自取 UsageData
 - `components/FlashCard.tsx`: 新会话标注弹窗 modal
+- `pages/ProjectsPage.tsx`: 主页面，组装晨间焦点 + 热力图 + 搜索筛选 + 项目/会话主从列表 + 闪卡
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

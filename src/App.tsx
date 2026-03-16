@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 @/components/layout/AppShell, @/features/skills 页面, @/features/usage 页面, @/features/providers 页面, @/lib/types
+ * [INPUT]: 依赖 @/components/layout/AppShell, @/features/skills 页面, @/features/projects 页面, @/features/usage 页面, @/features/providers 页面, @/lib/types
  * [OUTPUT]: 对外提供 App 根组件（keep-alive 模块切换，visited 懒挂载）
  * [POS]: 应用根，管理模块路由和视图状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -9,6 +9,7 @@ import { AppShell } from "@/components/layout/AppShell"
 import { SkillsPage } from "@/features/skills/pages/SkillsPage"
 import { SkillDetailPage } from "@/features/skills/pages/SkillDetailPage"
 import { ProvidersPage } from "@/features/providers/pages/ProvidersPage"
+import { ProjectsPage } from "@/features/projects/pages/ProjectsPage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
 import type { SkillMeta } from "@/lib/types"
 
@@ -49,6 +50,13 @@ function App() {
           />
         )}
       </div>
+
+      {/* Projects: 首次访问后保持挂载 */}
+      {visited.has("projects") && (
+        <div className={activeModule === "projects" ? "contents" : "hidden"}>
+          <ProjectsPage active={activeModule === "projects"} />
+        </div>
+      )}
 
       {/* Usage: 首次访问后保持挂载 */}
       {visited.has("usage") && (
