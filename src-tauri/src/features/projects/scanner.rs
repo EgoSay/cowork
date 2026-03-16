@@ -29,7 +29,11 @@ fn extract_title(value: &serde_json::Value) -> Option<String> {
     if raw.len() <= limit {
         Some(raw.to_string())
     } else {
-        let boundary = raw.floor_char_boundary(limit);
+        // 手动实现 floor_char_boundary（避免 nightly 依赖）
+        let mut boundary = limit;
+        while boundary > 0 && !raw.is_char_boundary(boundary) {
+            boundary -= 1;
+        }
         Some(format!("{}...", &raw[..boundary]))
     }
 }

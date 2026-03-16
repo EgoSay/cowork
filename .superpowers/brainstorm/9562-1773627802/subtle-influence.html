@@ -1,0 +1,209 @@
+<h2>"潜移默化"机制设计</h2>
+<p class="subtitle">不是让用户看数据，而是让数据改变用户</p>
+
+<div class="section">
+  <h3>核心理念</h3>
+  <div style="background:#111;border:1px solid #333;border-radius:8px;padding:16px;font-size:13px;color:#aaa;line-height:1.8;">
+    <div style="margin-bottom:12px;">行为改变三要素（BJ Fogg 模型）：</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div style="background:#0d0d0d;border:1px solid #262626;border-radius:6px;padding:12px;text-align:center;">
+        <div style="font-size:20px;margin-bottom:4px;">🎯</div>
+        <div class="label" style="color:#4ade80;">动机</div>
+        <div style="font-size:11px;margin-top:4px;">看到进步 → 想要更多进步</div>
+      </div>
+      <div style="background:#0d0d0d;border:1px solid #262626;border-radius:6px;padding:12px;text-align:center;">
+        <div style="font-size:20px;margin-bottom:4px;">⚡</div>
+        <div class="label" style="color:#fbbf24;">能力</div>
+        <div style="font-size:11px;margin-top:4px;">具体建议 → 知道怎么改</div>
+      </div>
+      <div style="background:#0d0d0d;border:1px solid #262626;border-radius:6px;padding:12px;text-align:center;">
+        <div style="font-size:20px;margin-bottom:4px;">🔔</div>
+        <div class="label" style="color:#818cf8;">触发</div>
+        <div style="font-size:11px;margin-top:4px;">在正确时机 → 推送到眼前</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>机制 1：晨间焦点 (Morning Focus)</h3>
+  <p class="subtitle">打开 CoWork 时的第一屏，3 秒建立今日认知</p>
+  <div class="mockup">
+    <div class="mockup-header">CoWork — Morning Focus</div>
+    <div class="mockup-body" style="padding:20px;">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:11px;color:#737373;">2026-03-16 周一</div>
+        <div style="font-size:16px;color:#fafafa;margin-top:4px;">昨日回顾</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
+        <div style="background:#0d0d0d;border-radius:6px;padding:12px;text-align:center;">
+          <div style="font-size:24px;color:#fafafa;font-weight:600;">7</div>
+          <div style="font-size:10px;color:#737373;">会话</div>
+        </div>
+        <div style="background:#0d0d0d;border-radius:6px;padding:12px;text-align:center;">
+          <div style="font-size:24px;color:#4ade80;font-weight:600;">85%</div>
+          <div style="font-size:10px;color:#737373;">首次正确率</div>
+        </div>
+        <div style="background:#0d0d0d;border-radius:6px;padding:12px;text-align:center;">
+          <div style="font-size:24px;color:#fafafa;font-weight:600;">2.3h</div>
+          <div style="font-size:10px;color:#737373;">协作时长</div>
+        </div>
+      </div>
+      <div style="background:#0f1a0f;border:1px solid #1a3a1a;border-radius:6px;padding:12px;margin-bottom:12px;">
+        <div style="font-size:11px;color:#4ade80;margin-bottom:4px;">⬆ 本周趋势</div>
+        <div style="font-size:12px;color:#ccc;">迭代轮次从 4.2 降至 2.8，prompt 越来越精准了</div>
+      </div>
+      <div style="background:#1a1510;border:1px solid #3a2a10;border-radius:6px;padding:12px;">
+        <div style="font-size:11px;color:#fbbf24;margin-bottom:4px;">💡 今日建议</div>
+        <div style="font-size:12px;color:#ccc;">昨天在 cowork 项目反复修正了 3 次 CSS，试试先描述期望效果再写代码</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>机制 2：会话闪卡 (Session Flash Card)</h3>
+  <p class="subtitle">每个会话结束时自动生成，纯记录不评判，建立觉察</p>
+  <div class="mockup">
+    <div class="mockup-header">Session Flash Card — 自动检测会话结束</div>
+    <div class="mockup-body" style="padding:20px;">
+      <div style="display:flex;gap:16px;">
+        <div style="flex:1;background:#0d0d0d;border-radius:6px;padding:14px;">
+          <div style="font-size:10px;color:#737373;margin-bottom:8px;">14:23 — 15:47</div>
+          <div style="font-size:13px;color:#fafafa;margin-bottom:4px;">cowork / feat-project</div>
+          <div style="font-size:11px;color:#737373;margin-bottom:12px;">"实现项目浏览器的后端扫描器"</div>
+          <div style="display:flex;gap:16px;font-size:11px;">
+            <span style="color:#737373;">消息 <span style="color:#fafafa;">18</span></span>
+            <span style="color:#737373;">轮次 <span style="color:#4ade80;">3</span></span>
+            <span style="color:#737373;">Token <span style="color:#fafafa;">42k</span></span>
+          </div>
+        </div>
+        <div style="width:100px;display:flex;flex-direction:column;gap:6px;justify-content:center;">
+          <button style="background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:6px;font-size:10px;color:#4ade80;cursor:pointer;">✓ 高效</button>
+          <button style="background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:6px;font-size:10px;color:#f87171;cursor:pointer;">✗ 踩坑</button>
+          <button style="background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:6px;font-size:10px;color:#818cf8;cursor:pointer;">📋 模板</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#737373;margin-top:6px;">关键：不是你主动去看，而是它主动出现。标注只需一键，零摩擦。</p>
+</div>
+
+<div class="section">
+  <h3>机制 3：周进化报告 (Weekly Evolution Letter)</h3>
+  <p class="subtitle">不是统计报表，是写给自己的进化日记</p>
+  <div class="mockup">
+    <div class="mockup-header">Weekly Evolution — 第 12 周</div>
+    <div class="mockup-body" style="padding:20px;font-size:12px;color:#ccc;line-height:1.8;">
+      <div style="margin-bottom:16px;">
+        <div style="color:#fafafa;font-size:14px;margin-bottom:8px;">📊 本周数据</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          <div style="background:#0d0d0d;border-radius:4px;padding:8px;text-align:center;">
+            <div style="color:#fafafa;font-weight:600;">32</div>
+            <div style="font-size:10px;color:#737373;">会话</div>
+          </div>
+          <div style="background:#0d0d0d;border-radius:4px;padding:8px;text-align:center;">
+            <div style="color:#4ade80;font-weight:600;">↓18%</div>
+            <div style="font-size:10px;color:#737373;">平均迭代</div>
+          </div>
+          <div style="background:#0d0d0d;border-radius:4px;padding:8px;text-align:center;">
+            <div style="color:#fbbf24;font-weight:600;">3</div>
+            <div style="font-size:10px;color:#737373;">踩坑标记</div>
+          </div>
+          <div style="background:#0d0d0d;border-radius:4px;padding:8px;text-align:center;">
+            <div style="color:#818cf8;font-weight:600;">2</div>
+            <div style="font-size:10px;color:#737373;">新模板</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="color:#fafafa;font-size:14px;margin-bottom:8px;">🔍 模式发现</div>
+        <div style="background:#0f1a0f;border:1px solid #1a3a1a;border-radius:6px;padding:10px;margin-bottom:6px;">
+          <span style="color:#4ade80;">进步：</span>重构类任务的首次正确率从 60% 提升到 82%，你的架构描述越来越精准了
+        </div>
+        <div style="background:#1a1510;border:1px solid #3a2a10;border-radius:6px;padding:10px;">
+          <span style="color:#fbbf24;">关注：</span>CSS/样式类任务仍有高迭代次数（平均 5.1 轮），连续第二周。考虑引入设计截图作为 prompt 输入？
+        </div>
+      </div>
+      <div>
+        <div style="color:#fafafa;font-size:14px;margin-bottom:8px;">🎯 下周挑战</div>
+        <div style="background:#0d0d0d;border:1px solid #262626;border-radius:6px;padding:10px;">
+          尝试在样式任务开始时附上期望效果的文字描述或参考图，看迭代次数能否降到 3 以下
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#737373;margin-top:6px;">P1-P2 阶段基于规则生成，P3 阶段接入 AI 生成更深度的洞察</p>
+</div>
+
+<div class="section">
+  <h3>机制 4：上下文护栏 (Context Guard)</h3>
+  <p class="subtitle">打开有"踩坑"标记的项目时，自动浮现提醒</p>
+  <div class="mockup">
+    <div class="mockup-header">打开项目时触发</div>
+    <div class="mockup-body" style="padding:20px;">
+      <div style="background:#1a1212;border:1px solid #3a2020;border-radius:6px;padding:12px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="color:#f87171;font-size:12px;">⚠</span>
+          <span style="font-size:12px;color:#f87171;">此项目有 2 个踩坑记录</span>
+        </div>
+        <div style="font-size:11px;color:#999;line-height:1.6;">
+          <div>• 3/12: Tauri IPC 序列化——Option&lt;T&gt; 需用 #[serde(skip_serializing_if)]</div>
+          <div>• 3/14: glob 路径——Windows 下反斜杠需特殊处理</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#525252;text-align:right;">
+        点击关闭 · 不再提示此项
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>机制 5：进化轨迹 (Evolution Trace)</h3>
+  <p class="subtitle">长期趋势可视化，让"变强"这件事肉眼可见</p>
+  <div class="mockup">
+    <div class="mockup-header">协作进化轨迹 — 近 12 周</div>
+    <div class="mockup-body" style="padding:20px;">
+      <div style="display:flex;align-items:flex-end;gap:3px;height:80px;margin-bottom:12px;">
+        <!-- Simulated bar chart -->
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:45%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:50%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:42%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:55%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:60%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:58%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:65%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:70%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:68%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:75%;"></div>
+        <div style="flex:1;background:#1a3a1a;border-radius:2px 2px 0 0;height:80%;"></div>
+        <div style="flex:1;background:#4ade80;border-radius:2px 2px 0 0;height:85%;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#525252;">
+        <span>W1</span><span>W4</span><span>W8</span><span>W12</span>
+      </div>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:#737373;">
+        协作效率指数：<span style="color:#4ade80;">82</span> / 100
+        <span style="color:#4ade80;margin-left:8px;">↑12</span>
+        <span style="color:#525252;margin-left:4px;">vs 12 周前</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>机制融入路线图</h3>
+  <div style="background:#111;border:1px solid #333;border-radius:8px;padding:16px;font-size:12px;color:#ccc;">
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;line-height:1.8;">
+      <span style="color:#4ade80;">P1</span>
+      <span>会话闪卡（自动弹出 + 一键标注） + 基础晨间焦点（纯数字）</span>
+      <span style="color:#fbbf24;">P2</span>
+      <span>周进化报告（规则生成） + 进化轨迹图 + 上下文护栏</span>
+      <span style="color:#818cf8;">P3</span>
+      <span>AI 增强周报（深度洞察） + 个人最佳实践自动提取</span>
+      <span style="color:#f472b6;">P4</span>
+      <span>实时会话监测 + 智能建议推送 + 跨工具进化对比</span>
+    </div>
+  </div>
+</div>
