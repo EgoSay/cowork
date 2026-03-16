@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sha2::Sha256, dirs::home_dir 的哈希和路径能力
- * [OUTPUT]: 对外提供 expand_tilde, hash_content, path_to_id, file_modified_at
+ * [OUTPUT]: 对外提供 expand_tilde, hash_content, path_to_id, file_modified_at, cowork_dir, file_mtime_secs
  * [POS]: shared/fs_utils 的核心工具集，被 scanner 和 config 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,6 +33,21 @@ pub fn path_to_id(path: &Path) -> String {
 /// 获取文件修改时间
 pub fn file_modified_at(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).ok()?.modified().ok()
+}
+
+/// 返回 ~/.cowork/ 目录路径
+pub fn cowork_dir() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".cowork")
+}
+
+/// 获取文件 mtime（Unix 秒精度）
+pub fn file_mtime_secs(path: &Path) -> Option<i64> {
+    file_modified_at(path)?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs() as i64)
 }
 
 #[cfg(test)]

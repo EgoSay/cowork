@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 无外部依赖
- * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, DailyRecord, UsageData, ProviderProfile, ProvidersConfig 等类型
+ * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, DailyRecord, UsageData, ProviderProfile, ProvidersConfig, ProjectMeta, SessionMeta, SessionMessage, SessionAnnotation, ProjectData 等类型
  * [POS]: 全局 TS 类型，镜像 Rust 后端数据结构
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -81,4 +81,46 @@ export interface ProviderProfile {
 export interface ProvidersConfig {
   providers: ProviderProfile[]
   active: Record<string, string>
+}
+
+// ── Projects (进化引擎) ─────────────────────────────
+
+export interface ProjectMeta {
+  id: string
+  name: string
+  dir_name: string
+  dir_path: string
+  session_count: number
+  last_active: string          // ISO timestamp
+  total_sessions_duration_secs: number
+}
+
+export interface SessionMeta {
+  id: string
+  project_id: string
+  title: string
+  started_at: string           // ISO timestamp
+  ended_at: string             // ISO timestamp
+  duration_secs: number
+  message_count: number
+  user_message_count: number
+  turn_count: number
+  has_subagents: boolean
+}
+
+export interface SessionMessage {
+  type: string        // "system" | "user" | "assistant"
+  content: string
+  timestamp: string
+}
+
+export interface SessionAnnotation {
+  tags: string[]
+  note: string | null
+  created_at: string           // ISO timestamp
+}
+
+export interface ProjectData {
+  project: ProjectMeta
+  sessions: SessionMeta[]
 }

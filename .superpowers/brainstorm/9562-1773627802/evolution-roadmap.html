@@ -1,0 +1,161 @@
+<h2>AI 协作进化引擎 — 迭代路线图</h2>
+<p class="subtitle">从最小闭环到完整进化系统，四阶段递进交付</p>
+
+<div class="section">
+  <h3>Phase 1: 感知闭环 <span style="color:#4ade80;font-size:13px;">← 当前</span></h3>
+  <p class="subtitle" style="margin-bottom:12px;">目标：看见 + 理解 + 手动标记</p>
+  <div style="background:#111;border:1px solid #333;border-radius:8px;padding:16px;margin-bottom:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+      <div>
+        <div class="label" style="color:#4ade80;">感知</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>扫描 Claude Code 项目</li>
+          <li>解析会话元数据</li>
+          <li>首条消息 + 时间戳</li>
+          <li>消息数 / Token 用量</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label" style="color:#fbbf24;">认知</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>会话效率面板</li>
+          <li>每日会话数趋势</li>
+          <li>平均迭代轮次</li>
+          <li>Token 消耗热力图</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label" style="color:#818cf8;">进化</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>会话手动标注</li>
+          <li>标签系统（高效/踩坑/模板）</li>
+          <li>标注数据持久化</li>
+          <li>按标签筛选回顾</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#737373;">交付物：项目浏览器 + 会话列表 + 效率面板 + 标注系统</p>
+</div>
+
+<div class="section">
+  <h3>Phase 2: 认知深化</h3>
+  <p class="subtitle" style="margin-bottom:12px;">目标：自动识别模式，量化协作质量</p>
+  <div style="background:#111;border:1px solid #333;border-radius:8px;padding:16px;margin-bottom:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="label" style="color:#fbbf24;">模式识别</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>会话分类：feature / debug / refactor / explore</li>
+          <li>自动检测"反复修正"模式（迭代次数异常）</li>
+          <li>识别高效开场 prompt 结构</li>
+          <li>工具使用频率分析（哪些工具你最依赖）</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label" style="color:#fbbf24;">质量度量</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>协作效率指数（目标达成 / Token 消耗）</li>
+          <li>首次正确率（一次命中 vs 多轮修正）</li>
+          <li>按项目/任务类型对比效率</li>
+          <li>周报：本周 vs 上周协作质量趋势</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#737373;">依赖 Phase 1 的标注数据作为训练信号 + JSONL 深度解析</p>
+</div>
+
+<div class="section">
+  <h3>Phase 3: 进化引擎</h3>
+  <p class="subtitle" style="margin-bottom:12px;">目标：从历史中自动提取可复用经验</p>
+  <div style="background:#111;border:1px solid #333;border-radius:8px;padding:16px;margin-bottom:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="label" style="color:#818cf8;">经验提取</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>从"高效"标注会话提取 prompt 模板</li>
+          <li>从"踩坑"标注会话提取避坑清单</li>
+          <li>自动生成个人协作最佳实践文档</li>
+          <li>跨项目经验关联（相似任务的不同解法）</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label" style="color:#818cf8;">上下文延续</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>项目级知识摘要（自动维护）</li>
+          <li>会话间上下文桥接建议</li>
+          <li>智能 CLAUDE.md 生成/更新建议</li>
+          <li>新会话自动注入相关历史摘要</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#737373;">需要调用 AI API 做内容分析 — 复用已有的 Provider 模块</p>
+</div>
+
+<div class="section">
+  <h3>Phase 4: 协作增强</h3>
+  <p class="subtitle" style="margin-bottom:12px;">目标：主动介入，实时提升协作质量</p>
+  <div style="background:#111;border:1px solid #333;border-radius:8px;padding:16px;margin-bottom:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="label" style="color:#f472b6;">实时辅助</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>会话实时监测（通过 watch JSONL）</li>
+          <li>迭代次数告警："已修正 5 轮，建议换策略"</li>
+          <li>上下文膨胀提醒：Token 接近窗口上限</li>
+          <li>相似历史推荐："上次遇到类似问题时..."</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label" style="color:#f472b6;">生态扩展</div>
+        <ul style="margin:8px 0 0;padding-left:16px;font-size:13px;color:#ccc;">
+          <li>支持 Codex / Cursor / Trae 会话</li>
+          <li>跨工具协作效率对比</li>
+          <li>团队协作模式（共享最佳实践）</li>
+          <li>插件系统：自定义分析维度</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#737373;">最终形态：从被动记录到主动进化的 AI 协作副驾驶</p>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>阶段依赖关系</h3>
+  <div style="background:#111;border:1px solid #333;border-radius:8px;padding:20px;font-family:monospace;font-size:13px;color:#ccc;line-height:2;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span style="background:#16291a;border:1px solid #4ade80;padding:4px 12px;border-radius:6px;color:#4ade80;">P1: 感知闭环</span>
+      <span style="color:#555;">→</span>
+      <span style="background:#291f0a;border:1px solid #fbbf24;padding:4px 12px;border-radius:6px;color:#fbbf24;">P2: 认知深化</span>
+      <span style="color:#555;">→</span>
+      <span style="background:#1a1a2e;border:1px solid #818cf8;padding:4px 12px;border-radius:6px;color:#818cf8;">P3: 进化引擎</span>
+      <span style="color:#555;">→</span>
+      <span style="background:#2a1525;border:1px solid #f472b6;padding:4px 12px;border-radius:6px;color:#f472b6;">P4: 协作增强</span>
+    </div>
+    <div style="margin-top:16px;font-size:12px;color:#737373;">
+      <div>P1 → P2: 标注数据是模式识别的训练信号</div>
+      <div>P2 → P3: 模式识别结果驱动经验提取策略</div>
+      <div>P3 → P4: 提取的经验库支撑实时推荐</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>关键架构约束</h3>
+  <div style="background:#111;border:1px solid #333;border-radius:8px;padding:16px;font-size:13px;color:#ccc;">
+    <div style="margin-bottom:8px;">
+      <span style="color:#f87171;">●</span> <strong>P1-P2 纯本地</strong> — 不依赖外部 AI API，纯文件解析 + 本地统计
+    </div>
+    <div style="margin-bottom:8px;">
+      <span style="color:#fbbf24;">●</span> <strong>P3 引入 AI</strong> — 经验提取需要 LLM，复用已有 Provider 模块
+    </div>
+    <div style="margin-bottom:8px;">
+      <span style="color:#818cf8;">●</span> <strong>P4 实时性</strong> — 需要 file watcher 机制，从"查询式"升级为"推送式"
+    </div>
+    <div>
+      <span style="color:#4ade80;">●</span> <strong>全程无数据库</strong> — 延续项目哲学，文件系统 + 内存索引 + TOML/JSON 持久化
+    </div>
+  </div>
+</div>

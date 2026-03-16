@@ -7,6 +7,7 @@ src/components/layout/ - 壳组件: AppShell, TitleBar, ModuleNav
 src/features/skills/ - Skills 管理功能模块 (3子目录: pages, components, hooks)
 src/features/usage/ - Usage 监控仪表盘 (3子目录: pages, components, hooks)
 src/features/providers/ - API 供应商管理模块 (3子目录: pages, components, hooks)
+src/features/projects/ - 进化引擎 P1: 项目浏览器+会话标注+晨间焦点+热力图 (3子目录: pages, components, hooks)
 src/lib/ - 全局类型 (types.ts) + Tauri IPC 封装 (api.ts)
 src-tauri/ - Rust 后端 (1子目录: src)
 src-tauri/src/ - Rust 源码入口
@@ -15,6 +16,7 @@ src-tauri/src/features/skills/scanner/ - 四工具扫描器: claude_code, codex,
 src-tauri/src/features/usage/ - Usage 数据聚合 (1子目录: parser)
 src-tauri/src/features/usage/parser/ - 双工具 session JSONL 解析器: claude_code, codex
 src-tauri/src/features/providers/ - 供应商后端: types, store, writer, commands
+src-tauri/src/features/projects/ - 进化引擎 P1 后端: scanner+annotations+commands
 src-tauri/src/shared/ - 共享工具: fs_utils (expand_tilde, hash_content, path_to_id)
 </directory>
 

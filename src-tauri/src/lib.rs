@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 tauri, tauri_plugin_opener, tauri_plugin_shell
- * [OUTPUT]: 对外提供 run() 函数启动 Tauri 应用
- * [POS]: crate 入口，声明所有模块，组装 Tauri Builder
+ * [OUTPUT]: 对外提供 run() 函数, ProviderLock, ProjectsLock
+ * [POS]: crate 入口，声明所有模块，组装 Tauri Builder，定义全局并发锁
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 mod config;
@@ -12,10 +12,14 @@ mod types;
 use features::skills::commands;
 use features::usage::commands as usage_commands;
 use features::providers::commands as provider_commands;
+use features::projects::commands as project_commands;
 use std::sync::Mutex;
 
 /// 供应商操作的并发锁，防止 load→save 竞态
 pub struct ProviderLock(pub Mutex<()>);
+
+/// 项目操作的并发锁，防止 scan/annotate 竞态
+pub struct ProjectsLock(pub Mutex<()>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,6 +27,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .manage(ProviderLock(Mutex::new(())))
+        .manage(ProjectsLock(Mutex::new(())))
         .invoke_handler(tauri::generate_handler![
             commands::scan_all_tools,
             commands::scan_tool,
@@ -42,6 +47,12 @@ pub fn run() {
             provider_commands::update_provider,
             provider_commands::remove_provider,
             provider_commands::read_claude_env,
+            project_commands::scan_projects,
+            project_commands::get_session_messages,
+            project_commands::resume_session,
+            project_commands::annotate_session,
+            project_commands::get_annotations,
+            project_commands::remove_annotation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CoWork");
