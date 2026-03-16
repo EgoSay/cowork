@@ -15,6 +15,7 @@ src-tauri/src/features/skills/scanner/ - 四工具扫描器: claude_code, codex,
 src-tauri/src/features/usage/ - Usage 数据聚合 (1子目录: parser)
 src-tauri/src/features/usage/parser/ - 双工具 session JSONL 解析器: claude_code, codex
 src-tauri/src/features/providers/ - 供应商后端: types, store, writer, commands
+src-tauri/src/features/projects/ - 项目会话后端: types, scanner, annotations, commands
 src-tauri/src/shared/ - 共享工具: fs_utils (expand_tilde, hash_content, path_to_id)
 </directory>
 
