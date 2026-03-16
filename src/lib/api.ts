@@ -1,11 +1,11 @@
 /**
  * [INPUT]: 依赖 @tauri-apps/api/core 的 invoke, ./types
- * [OUTPUT]: 对外提供所有 Tauri IPC 封装函数，包括 scanProjects, annotateSession, getAnnotations, removeAnnotation
+ * [OUTPUT]: 对外提供所有 Tauri IPC 封装函数，包括 scanProjects, getSessionMessages, resumeSession, annotateSession, getAnnotations, removeAnnotation
  * [POS]: 前端 API 层，类型安全的 invoke 封装
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { invoke } from "@tauri-apps/api/core"
-import type { SkillMeta, SkillDetail, PushResult, Tool, UsageData, ProvidersConfig, ProjectData, SessionAnnotation } from "./types"
+import type { SkillMeta, SkillDetail, PushResult, Tool, UsageData, ProvidersConfig, ProjectData, SessionMessage, SessionAnnotation } from "./types"
 
 export async function scanAllTools(): Promise<SkillMeta[]> {
   return invoke<SkillMeta[]>("scan_all_tools")
@@ -88,6 +88,14 @@ export async function readClaudeEnv(): Promise<[string | null, string | null]> {
 }
 
 // ── Projects ────────────────────────────────────────
+
+export async function getSessionMessages(filePath: string): Promise<SessionMessage[]> {
+  return invoke<SessionMessage[]>("get_session_messages", { filePath })
+}
+
+export async function resumeSession(sessionId: string): Promise<void> {
+  return invoke("resume_session", { sessionId })
+}
 
 export async function scanProjects(): Promise<ProjectData[]> {
   return invoke<ProjectData[]>("scan_projects")

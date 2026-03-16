@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 serde 序列化, std::collections::HashMap
- * [OUTPUT]: 对外提供 ProjectMeta, SessionMeta, SessionAnnotation, ProjectData, CacheEntry, ProjectsCache
+ * [OUTPUT]: 对外提供 ProjectMeta, SessionMeta, SessionAnnotation, SessionMessage, ProjectData, CacheEntry, ProjectsCache
  * [POS]: projects 功能的核心数据类型，被 scanner/annotations/commands 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -44,6 +44,16 @@ pub struct SessionAnnotation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     pub created_at: String,
+}
+
+// ── 会话消息（详情页用） ─────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionMessage {
+    #[serde(rename = "type")]
+    pub msg_type: String, // "system" | "user" | "assistant"
+    pub content: String,  // message content text
+    pub timestamp: String, // ISO timestamp
 }
 
 // ── 项目详情（含会话列表） ────────────────────────────────

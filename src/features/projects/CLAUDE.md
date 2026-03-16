@@ -5,14 +5,15 @@ Project session history & annotation engine. Scans Claude Code JSONL sessions, g
 
 ## Members
 - `lib.ts`: TAG_OPTIONS, TagId, relativeTime, formatTime, formatDate, localDateString, yesterdayString, computeDistribution, DistributionItem
-- `hooks/useProjects.ts`: single truth source, useReducer state, re-entry backgroundRefresh, flash card detection, useMemo derived (filteredProjects, selectedSessions, filteredSessions, morningFocus, tagDistribution)
+- `hooks/useProjects.ts`: single truth source, useReducer state, re-entry backgroundRefresh, flash card detection, selectedSession 详情导航, useMemo derived (filteredProjects, selectedSessions, filteredSessions, morningFocus, tagDistribution)
 - `components/ProjectCard.tsx`: 项目列表卡片，显示名称/会话数/最后活跃
-- `components/SessionCard.tsx`: 会话卡片，内联标签切换按钮
+- `components/SessionCard.tsx`: 会话卡片，内联标签切换按钮，onClick 导航至详情
+- `components/SessionDetail.tsx`: 会话详情页，完整对话展示 + 恢复会话按钮 + 标注
 - `components/TagFilter.tsx`: 标签筛选栏（全部/高效/踩坑/模板/未标注）
 - `components/TimeDistribution.tsx`: 水平比例条 + 图例
 - `components/MorningFocus.tsx`: 昨日回顾面板，4 统计卡 + 时间分布
 - `components/TokenHeatmap.tsx`: 28 天 token 消耗热力图，自取 UsageData
 - `components/FlashCard.tsx`: 新会话标注弹窗 modal
-- `pages/ProjectsPage.tsx`: 主页面，组装晨间焦点 + 热力图 + 搜索筛选 + 项目/会话主从列表 + 闪卡
+- `pages/ProjectsPage.tsx`: 主页面，组装晨间焦点 + 热力图 + 搜索筛选 + 项目/会话主从列表 + 闪卡 + 会话详情
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

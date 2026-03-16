@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 无外部依赖
- * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, DailyRecord, UsageData, ProviderProfile, ProvidersConfig, ProjectMeta, SessionMeta, SessionAnnotation, ProjectData 等类型
+ * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, DailyRecord, UsageData, ProviderProfile, ProvidersConfig, ProjectMeta, SessionMeta, SessionMessage, SessionAnnotation, ProjectData 等类型
  * [POS]: 全局 TS 类型，镜像 Rust 后端数据结构
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -106,6 +106,12 @@ export interface SessionMeta {
   user_message_count: number
   turn_count: number
   has_subagents: boolean
+}
+
+export interface SessionMessage {
+  type: string        // "system" | "user" | "assistant"
+  content: string
+  timestamp: string
 }
 
 export interface SessionAnnotation {

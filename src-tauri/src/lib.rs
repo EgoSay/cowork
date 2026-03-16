@@ -48,6 +48,8 @@ pub fn run() {
             provider_commands::remove_provider,
             provider_commands::read_claude_env,
             project_commands::scan_projects,
+            project_commands::get_session_messages,
+            project_commands::resume_session,
             project_commands::annotate_session,
             project_commands::get_annotations,
             project_commands::remove_annotation,

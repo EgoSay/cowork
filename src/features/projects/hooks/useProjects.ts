@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 @/lib/api::scanProjects/getAnnotations/annotateSession/removeAnnotation, @/lib/types, ../lib
- * [OUTPUT]: 对外提供 useProjects hook（单真相源，re-entry 静默刷新，flash card 检测，useMemo 派生数据）
+ * [OUTPUT]: 对外提供 useProjects hook（单真相源，re-entry 静默刷新，flash card 检测，useMemo 派生数据，selectedSession 详情导航）
  * [POS]: projects hooks 核心，管理项目列表/会话/标注状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,7 @@ interface State {
   projectData: ProjectData[]
   annotations: Record<string, SessionAnnotation>
   selectedProjectId: string | null
+  selectedSession: SessionMeta | null
   search: string
   tagFilter: string[]
   loading: boolean
@@ -42,6 +43,7 @@ type Action =
   | { type: "SET_TAG_FILTER"; tags: string[] }
   | { type: "SET_ANNOTATIONS"; annotations: Record<string, SessionAnnotation> }
   | { type: "SET_FLASH"; session: SessionMeta | null }
+  | { type: "SELECT_SESSION"; session: SessionMeta | null }
   | { type: "REFRESH_DATA"; projectData: ProjectData[]; annotations: Record<string, SessionAnnotation> }
 
 function reducer(state: State, action: Action): State {
@@ -62,6 +64,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, annotations: action.annotations }
     case "SET_FLASH":
       return { ...state, flashSession: action.session }
+    case "SELECT_SESSION":
+      return { ...state, selectedSession: action.session }
     case "REFRESH_DATA":
       return { ...state, projectData: action.projectData, annotations: action.annotations }
   }
@@ -83,6 +87,7 @@ export function useProjects(active: boolean) {
     projectData: [],
     annotations: {},
     selectedProjectId: null,
+    selectedSession: null,
     search: "",
     tagFilter: [],
     loading: true,
@@ -238,6 +243,11 @@ export function useProjects(active: boolean) {
     [],
   )
 
+  const selectSession = useCallback(
+    (session: SessionMeta | null) => dispatch({ type: "SELECT_SESSION", session }),
+    [],
+  )
+
   const dismissFlash = useCallback(
     () => dispatch({ type: "SET_FLASH", session: null }),
     [],
@@ -265,9 +275,12 @@ export function useProjects(active: boolean) {
     error: state.error,
     annotations: state.annotations,
     selectedProjectId: state.selectedProjectId,
+    selectedSession: state.selectedSession,
     search: state.search,
     tagFilter: state.tagFilter,
     flashSession: state.flashSession,
+    // 原始数据
+    projectData: state.projectData,
     // 派生数据
     filteredProjects,
     selectedSessions,
@@ -277,6 +290,7 @@ export function useProjects(active: boolean) {
     tagDistribution,
     // 操作
     selectProject,
+    selectSession,
     setSearch,
     setTagFilter,
     dismissFlash,

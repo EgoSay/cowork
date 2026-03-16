@@ -11,9 +11,10 @@ interface SessionCardProps {
   session: SessionMeta
   annotation?: SessionAnnotation
   onAnnotate: (tags: string[], note: string | null) => void
+  onClick?: () => void
 }
 
-export function SessionCard({ session, annotation, onAnnotate }: SessionCardProps) {
+export function SessionCard({ session, annotation, onAnnotate, onClick }: SessionCardProps) {
   const toggleTag = (tagId: string) => {
     const current = annotation?.tags ?? []
     const next = current.includes(tagId)
@@ -25,7 +26,10 @@ export function SessionCard({ session, annotation, onAnnotate }: SessionCardProp
   const activeTags = new Set(annotation?.tags ?? [])
 
   return (
-    <div className="p-3 rounded-lg bg-bg-card border border-border">
+    <div
+      className={`p-3 rounded-lg bg-bg-card border border-border${onClick ? " cursor-pointer hover:border-text-muted/40 transition-colors" : ""}`}
+      onClick={onClick}
+    >
       {/* 标题 */}
       <div className="text-sm text-text line-clamp-1">{session.title}</div>
 
@@ -46,7 +50,7 @@ export function SessionCard({ session, annotation, onAnnotate }: SessionCardProp
           return (
             <button
               key={tag.id}
-              onClick={() => toggleTag(tag.id)}
+              onClick={e => { e.stopPropagation(); toggleTag(tag.id) }}
               className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
                 active
                   ? `${tag.color} bg-text/5`

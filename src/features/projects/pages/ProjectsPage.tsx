@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 ../hooks/useProjects, ../components/*, @/lib/types
  * [OUTPUT]: 对外提供 ProjectsPage 主页面组件
- * [POS]: Projects 模块主页面（晨间焦点 + 热力图 + 项目列表 + 会话列表 + 闪卡）
+ * [POS]: Projects 模块主页面（晨间焦点 + 热力图 + 项目列表 + 会话列表 + 闪卡 + 会话详情）
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { useProjects } from "../hooks/useProjects"
@@ -11,6 +11,7 @@ import { TagFilter } from "../components/TagFilter"
 import { ProjectCard } from "../components/ProjectCard"
 import { SessionCard } from "../components/SessionCard"
 import { FlashCard } from "../components/FlashCard"
+import { SessionDetail } from "../components/SessionDetail"
 
 interface ProjectsPageProps {
   active: boolean
@@ -22,19 +23,29 @@ export function ProjectsPage({ active }: ProjectsPageProps) {
     error,
     annotations,
     selectedProjectId,
+    selectedSession,
     search,
     tagFilter,
     flashSession,
+    projectData,
     filteredProjects,
     filteredSessions,
     morningFocus,
     tagDistribution,
     selectProject,
+    selectSession,
     setSearch,
     setTagFilter,
     dismissFlash,
     annotateSession,
   } = useProjects(active)
+
+  // ── 会话详情所需的 dirPath 查找 ─────────────────
+  const detailProject = selectedSession
+    ? projectData.find(pd => pd.project.id === selectedSession.project_id)?.project
+    : null
+  const detailDirPath = detailProject?.dir_path ?? ""
+  const detailProjectName = detailProject?.name ?? ""
 
   // ── 加载态 ────────────────────────────────────────
   if (loading) {
@@ -51,6 +62,20 @@ export function ProjectsPage({ active }: ProjectsPageProps) {
       <div className="flex items-center justify-center h-full text-danger text-sm">
         {error}
       </div>
+    )
+  }
+
+  // ── 会话详情视图 ────────────────────────────────
+  if (selectedSession) {
+    return (
+      <SessionDetail
+        session={selectedSession}
+        dirPath={detailDirPath}
+        projectName={detailProjectName}
+        annotation={annotations[selectedSession.id]}
+        onBack={() => selectSession(null)}
+        onAnnotate={(tags, note) => annotateSession(selectedSession.id, tags, note)}
+      />
     )
   }
 
@@ -122,6 +147,7 @@ export function ProjectsPage({ active }: ProjectsPageProps) {
                 session={session}
                 annotation={annotations[session.id]}
                 onAnnotate={(tags, note) => annotateSession(session.id, tags, note)}
+                onClick={() => selectSession(session)}
               />
             ))
           )}

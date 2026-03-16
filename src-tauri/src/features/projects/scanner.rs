@@ -1,10 +1,10 @@
 /**
- * [INPUT]: 依赖 serde_json, chrono, types::{SessionMeta,ProjectMeta,ProjectData,ProjectsCache,CacheEntry}, shared::fs_utils::path_to_id
- * [OUTPUT]: 对外提供 parse_session_meta(), extract_project_name(), scan_from_dir(), scan_all()
+ * [INPUT]: 依赖 serde_json, chrono, types::{SessionMeta,SessionMessage,ProjectMeta,ProjectData,ProjectsCache,CacheEntry}, shared::fs_utils::path_to_id
+ * [OUTPUT]: 对外提供 parse_session_meta(), parse_session_messages(), extract_project_name(), scan_from_dir(), scan_all()
  * [POS]: projects 的核心扫描器——JSONL 解析 + 目录遍历 + 缓存加速
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-use super::types::{CacheEntry, ProjectData, ProjectMeta, ProjectsCache, SessionMeta};
+use super::types::{CacheEntry, ProjectData, ProjectMeta, ProjectsCache, SessionMessage, SessionMeta};
 use crate::shared::fs_utils::path_to_id;
 use chrono::DateTime;
 use serde::Deserialize;
@@ -335,6 +335,42 @@ pub fn scan_all() -> Vec<ProjectData> {
     scan_from_dir(&base)
 }
 
+// ── 会话消息解析（详情页用） ─────────────────────────────
+
+/// 解析 JSONL 文件的完整消息列表（用于会话详情页）
+pub fn parse_session_messages(content: &str) -> Vec<SessionMessage> {
+    let mut messages = Vec::new();
+    for line in content.lines() {
+        let event: Event = match serde_json::from_str(line) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        let timestamp = event.timestamp.unwrap_or_default();
+
+        let content = match &event.message {
+            Some(msg) => msg
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            None => String::new(),
+        };
+
+        // Skip assistant messages with no meaningful content
+        if content.is_empty() && event.event_type == "assistant" {
+            continue;
+        }
+
+        messages.push(SessionMessage {
+            msg_type: event.event_type,
+            content,
+            timestamp,
+        });
+    }
+    messages
+}
+
 // ── 测试 ─────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -525,5 +561,30 @@ mod tests {
         let cache_file = tmp.path().join("test_cache.json");
         let results = scan_from_dir_with_cache(tmp.path(), &cache_file);
         assert!(results.is_empty());
+    }
+
+    // ── parse_session_messages 测试 ──────────────────
+
+    #[test]
+    fn parse_messages_extracts_all_types() {
+        let messages = parse_session_messages(MOCK_SESSION);
+        assert!(messages.len() >= 4); // system + 3 user + some assistant
+        assert_eq!(messages[0].msg_type, "system");
+        assert_eq!(messages[1].msg_type, "user");
+        assert_eq!(messages[1].content, "implement the project scanner for cowork");
+    }
+
+    #[test]
+    fn parse_messages_skips_empty_assistant() {
+        // assistant messages in MOCK_SESSION have no "content" text field → should be skipped
+        let messages = parse_session_messages(MOCK_SESSION);
+        let assistant_msgs: Vec<_> = messages.iter().filter(|m| m.msg_type == "assistant").collect();
+        assert!(assistant_msgs.is_empty());
+    }
+
+    #[test]
+    fn parse_messages_empty_input() {
+        let messages = parse_session_messages("");
+        assert!(messages.is_empty());
     }
 }
