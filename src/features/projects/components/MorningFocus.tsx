@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 ../lib::DistributionItem, ./TimeDistribution
  * [OUTPUT]: 对外提供 MorningFocus 组件
- * [POS]: 昨日回顾面板，紧凑单行设计，被 ProjectsPage 消费
+ * [POS]: 昨日回顾面板，50% 留白设计，被 ProjectsPage 右侧消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import type { DistributionItem } from "../lib"
@@ -15,6 +15,13 @@ interface MorningFocusProps {
   distribution: DistributionItem[]
 }
 
+const STATS: { key: keyof Omit<MorningFocusProps, "distribution">; label: string }[] = [
+  { key: "sessionCount", label: "会话" },
+  { key: "avgTurns", label: "平均轮次" },
+  { key: "efficient", label: "高效" },
+  { key: "pitfall", label: "踩坑" },
+]
+
 export function MorningFocus({
   sessionCount,
   avgTurns,
@@ -22,37 +29,27 @@ export function MorningFocus({
   pitfall,
   distribution,
 }: MorningFocusProps) {
-  const hasData = sessionCount > 0
+  const values = { sessionCount, avgTurns, efficient, pitfall }
 
   return (
-    <div className="px-4 py-2.5 border-b border-border">
-      {/* 单行统计 */}
-      <div className="flex items-center gap-4 text-[11px]">
-        <span className="text-text-muted uppercase tracking-widest text-[10px]">昨日</span>
-        <span className="text-text-secondary">
-          <span className={hasData ? "text-text font-medium" : "text-text-muted"}>{sessionCount}</span> 会话
-        </span>
-        <span className="text-text-secondary">
-          <span className={hasData ? "text-text font-medium" : "text-text-muted"}>{avgTurns.toFixed(1)}</span> 平均轮次
-        </span>
-        {efficient > 0 && (
-          <span className="text-success">
-            {efficient} 高效
-          </span>
-        )}
-        {pitfall > 0 && (
-          <span className="text-danger">
-            {pitfall} 踩坑
-          </span>
-        )}
-
-        {/* 时间分布条（紧凑版） */}
-        {distribution.length > 0 && (
-          <div className="flex-1 max-w-48 ml-auto">
-            <TimeDistribution items={distribution} compact />
-          </div>
-        )}
+    <div>
+      {/* 标题 */}
+      <div className="text-[10px] uppercase tracking-widest text-text-muted mb-3">
+        昨日回顾
       </div>
+
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {STATS.map(s => (
+          <div key={s.key} className="bg-bg-card rounded-lg p-3 text-center">
+            <div className="text-lg font-semibold text-text">{values[s.key]}</div>
+            <div className="text-[10px] text-text-muted mt-0.5">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 时间分布 */}
+      <TimeDistribution items={distribution} />
     </div>
   )
 }

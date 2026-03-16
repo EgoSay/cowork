@@ -86,7 +86,7 @@ export function ProjectsPage({ active }: ProjectsPageProps) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* ── 晨间焦点（紧凑单行） ──────────────────── */}
+      {/* ── 晨间焦点 ──────────────────────────────── */}
       <MorningFocus
         sessionCount={morningFocus.sessionCount}
         avgTurns={morningFocus.avgTurns}
@@ -95,11 +95,11 @@ export function ProjectsPage({ active }: ProjectsPageProps) {
         distribution={tagDistribution}
       />
 
-      {/* ── Token 热力图（全宽小格） ────────────── */}
+      {/* ── Token 热力图 ──────────────────────────── */}
       <TokenHeatmap />
 
       {/* ── 搜索 + 标签筛选 ──────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-border">
         <input
           type="text"
           value={search}
