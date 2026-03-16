@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 @/lib/api::getUsageData, @/lib/types::UsageData
  * [OUTPUT]: 对外提供 TokenHeatmap 组件
- * [POS]: Token 消耗强度可视化（28 天热力图），自取数据
+ * [POS]: Token 消耗强度可视化（GitHub contribution graph 风格热力图），自取数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { useEffect, useMemo, useState } from "react"
@@ -10,40 +10,21 @@ import type { UsageData } from "@/lib/types"
 
 // ── 常量 ────────────────────────────────────────────
 
-const LEVELS = [
-  "bg-[#0d0d0d]",
-  "bg-[#1a3a1a]",
-  "bg-[#2a5a2a]",
-  "bg-[#3a7a3a]",
-  "bg-[#4ade80]",
-]
-
-const DAY_LABELS = ["Mon", "", "Wed", "", "Fri", "", "Sun"]
-
-const WEEKS = 4
-const DAYS = 7
+const COLORS = ["#161616", "#0e4429", "#006d32", "#26a641", "#39d353"]
+const CELL = 10
+const GAP = 3
+const STEP = CELL + GAP
+const WEEKS = 13
 
 // ── 工具函数 ────────────────────────────────────────
 
 function dateKey(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${day}`
-}
-
-function getLevel(total: number, p25: number, p50: number, p75: number): number {
-  if (total === 0) return 0
-  if (total <= p25) return 1
-  if (total <= p50) return 2
-  if (total <= p75) return 3
-  return 4
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0
-  const idx = Math.ceil((p / 100) * sorted.length) - 1
-  return sorted[Math.max(0, idx)]
+  return sorted[Math.max(0, Math.ceil((p / 100) * sorted.length) - 1)]
 }
 
 // ── 组件 ────────────────────────────────────────────
@@ -55,7 +36,6 @@ export function TokenHeatmap() {
     getUsageData().then(setData).catch(() => {})
   }, [])
 
-  // 按日期聚合
   const dailyTotals = useMemo(() => {
     if (!data) return new Map<string, number>()
     const map = new Map<string, number>()
@@ -66,92 +46,99 @@ export function TokenHeatmap() {
     return map
   }, [data])
 
-  // 构建 grid: 7 行 × 4 列，从今天往回推 28 天
-  const { grid, weekLabels } = useMemo(() => {
+  const { cells, monthLabels } = useMemo(() => {
     const today = new Date()
-    const dow = (today.getDay() + 6) % 7 // Mon=0, Sun=6
+    const dow = (today.getDay() + 6) % 7
 
-    // 本周日（最后一天）的偏移
-    const endOffset = 6 - dow
-    const endDate = new Date(today)
-    endDate.setDate(today.getDate() + endOffset)
+    const startDate = new Date(today)
+    startDate.setDate(today.getDate() - dow - (WEEKS - 1) * 7)
 
-    const cols: { date: Date; key: string; total: number }[][] = []
-    const labels: string[] = []
+    const totalDays = WEEKS * 7
+    const cells: { key: string; total: number; col: number; row: number; future: boolean }[] = []
+    const months = new Map<number, string>()
 
-    for (let w = WEEKS - 1; w >= 0; w--) {
-      const col: { date: Date; key: string; total: number }[] = []
-      for (let d = 0; d < DAYS; d++) {
-        const offset = w * 7 + (6 - d)
-        const cellDate = new Date(endDate)
-        cellDate.setDate(endDate.getDate() - offset)
-        const key = dateKey(cellDate)
-        col.push({ date: cellDate, key, total: dailyTotals.get(key) ?? 0 })
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+      const col = Math.floor(i / 7)
+      const row = i % 7
+      const key = dateKey(d)
+
+      cells.push({ key, total: dailyTotals.get(key) ?? 0, col, row, future: d > today })
+
+      if (row === 0) {
+        const month = d.toLocaleString("zh-CN", { month: "short" })
+        const prev = [...months.values()].pop()
+        if (month !== prev) months.set(col, month)
       }
-      cols.push(col)
-      // 周标签：该列周一的日期
-      labels.push(`${col[0].date.getMonth() + 1}/${col[0].date.getDate()}`)
     }
 
-    return { grid: cols, weekLabels: labels }
+    return { cells, monthLabels: months }
   }, [dailyTotals])
 
-  // 分位数
   const { p25, p50, p75 } = useMemo(() => {
-    const nonZero = grid
-      .flat()
-      .map(c => c.total)
-      .filter(t => t > 0)
-      .sort((a, b) => a - b)
-    return {
-      p25: percentile(nonZero, 25),
-      p50: percentile(nonZero, 50),
-      p75: percentile(nonZero, 75),
-    }
-  }, [grid])
+    const nonZero = cells.map(c => c.total).filter(t => t > 0).sort((a, b) => a - b)
+    return { p25: percentile(nonZero, 25), p50: percentile(nonZero, 50), p75: percentile(nonZero, 75) }
+  }, [cells])
+
+  const getLevel = (t: number, future: boolean) => {
+    if (future || t === 0) return 0
+    if (t <= p25) return 1
+    if (t <= p50) return 2
+    if (t <= p75) return 3
+    return 4
+  }
+
+  const gridW = WEEKS * STEP - GAP
+  const gridH = 7 * STEP - GAP
+  const dayLabels = ["", "Mon", "", "Wed", "", "Fri", ""]
 
   return (
     <div className="px-4 py-2 border-b border-border">
-      <div className="text-[10px] uppercase tracking-widest text-text-muted mb-1.5">
-        Token 热力图
+      {/* 月份标签 */}
+      <div className="relative" style={{ marginLeft: 28, width: gridW, height: 14 }}>
+        {[...monthLabels.entries()].map(([col, label]) => (
+          <span
+            key={col}
+            className="absolute text-[9px] text-text-muted"
+            style={{ left: col * STEP }}
+          >
+            {label}
+          </span>
+        ))}
       </div>
 
-      <div className="flex gap-[3px]">
-        {/* 左侧日标签 */}
-        <div className="flex flex-col gap-[3px] pr-0.5">
-          {DAY_LABELS.map((label, i) => (
-            <div key={i} className="h-2.5 text-[8px] text-text-muted leading-[10px]">
+      <div className="flex">
+        {/* 日标签 */}
+        <div className="flex flex-col shrink-0" style={{ width: 28 }}>
+          {dayLabels.map((label, i) => (
+            <div
+              key={i}
+              className="text-[9px] text-text-muted flex items-center"
+              style={{ height: CELL, marginBottom: i < 6 ? GAP : 0 }}
+            >
               {label}
             </div>
           ))}
         </div>
 
         {/* 网格 */}
-        <div className="flex-1 flex gap-[3px]">
-          {grid.map((col, ci) => (
-            <div key={ci} className="flex-1 flex flex-col gap-[3px]">
-              {col.map(cell => {
-                const level = getLevel(cell.total, p25, p50, p75)
-                return (
-                  <div
-                    key={cell.key}
-                    title={`${cell.key}: ${cell.total.toLocaleString()} tokens`}
-                    className={`h-2.5 rounded-[2px] ${LEVELS[level]}`}
-                  />
-                )
-              })}
-            </div>
+        <div className="relative" style={{ width: gridW, height: gridH }}>
+          {cells.map(cell => (
+            <div
+              key={cell.key}
+              title={`${cell.key}: ${cell.total.toLocaleString()} tokens`}
+              className="absolute rounded-[2px]"
+              style={{
+                left: cell.col * STEP,
+                top: cell.row * STEP,
+                width: CELL,
+                height: CELL,
+                backgroundColor: COLORS[getLevel(cell.total, cell.future)],
+              }}
+            />
           ))}
         </div>
-      </div>
-
-      {/* 底部周标签 */}
-      <div className="flex gap-[3px] mt-0.5 pl-4">
-        {weekLabels.map((label, i) => (
-          <div key={i} className="flex-1 text-[8px] text-text-muted">
-            {label}
-          </div>
-        ))}
       </div>
     </div>
   )
