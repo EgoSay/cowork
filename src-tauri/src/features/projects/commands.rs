@@ -18,14 +18,22 @@ pub async fn scan_projects(lock: State<'_, ProjectsLock>) -> Result<Vec<ProjectD
     Ok(scanner::scan_all())
 }
 
-/// 获取会话的完整消息列表
+/// 获取会话的完整消息列表（路径校验：必须在 ~/.claude/projects/ 下且为 .jsonl）
 #[tauri::command]
 pub async fn get_session_messages(
     lock: State<'_, ProjectsLock>,
     file_path: String,
 ) -> Result<Vec<SessionMessage>, String> {
     let _guard = lock.0.lock().map_err(|e| e.to_string())?;
-    let content = std::fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
+    let path = std::path::Path::new(&file_path);
+    let base = dirs::home_dir()
+        .unwrap_or_default()
+        .join(".claude")
+        .join("projects");
+    if !path.starts_with(&base) || path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+        return Err("Invalid session file path".into());
+    }
+    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
     Ok(scanner::parse_session_messages(&content))
 }
 

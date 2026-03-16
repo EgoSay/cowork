@@ -159,8 +159,8 @@ export function ProjectsPage({ active }: ProjectsPageProps) {
         <FlashCard
           session={flashSession}
           projectName={flashProjectName}
-          onAnnotate={(tags, note) => {
-            annotateSession(flashSession.id, tags, note)
+          onAnnotate={async (tags, note) => {
+            await annotateSession(flashSession.id, tags, note)
             dismissFlash()
           }}
           onDismiss={dismissFlash}
