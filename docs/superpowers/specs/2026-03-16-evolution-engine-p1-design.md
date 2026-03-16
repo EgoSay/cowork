@@ -248,7 +248,8 @@ src/features/projects/
 │   ├── SessionCard.tsx         # 会话卡片（含标注按钮）
 │   ├── FlashCard.tsx           # 新会话弹出闪卡
 │   ├── TagFilter.tsx           # 标签筛选栏
-│   └── TimeDistribution.tsx    # 时间分配比例条
+│   ├── TimeDistribution.tsx    # 时间分配比例条
+│   └── TokenHeatmap.tsx        # 30 天 Token 热力图（GitHub contribution 风格）
 ├── hooks/
 │   └── useProjects.ts          # 核心 reducer hook
 └── lib.ts                      # 工具函数：相对时间格式化、标签常量、分布计算
@@ -407,7 +408,28 @@ interface State {
 - 昨日标注分布（N 个高效 / N 个踩坑）
 - 时间分配比例条（按项目或按标签，展示会话数占比）
 
-**不展示**：Token 数据（已有 Usage 模块）、精确时长、趋势图（P2）。
+**不展示**：精确时长、趋势图（P2）。
+
+### 3.6 Token 热力图
+
+GitHub contribution graph 风格，展示近 30 天的每日 Token 消耗强度。
+数据来源：直接调用 `getUsageData()`（复用 Usage 模块，零额外解析）。
+
+```
+         Mon  ░░▓▓░▓██░░░▓▓░░░▓█▓░░░░▓▓░▓░
+         Tue  ░▓▓░░▓▓█░░░▓░░░░▓▓░░░░▓░░░▓░
+         Wed  ░░▓░░░▓▓░▓░░▓░░▓▓▓░░░▓▓░░▓▓░
+         Thu  ░▓█░░▓▓░░░░▓░░░▓█░░░▓░▓░░░▓░
+         Fri  ░░▓░░░▓░░░░░▓░░▓▓░░░░▓░░░░░░
+         Sat  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+         Sun  ░░░░░░░▓░░░░░░░░░░░░░░░░░░░░░
+              W-4        W-3        W-2        W-1
+```
+
+- 颜色分 5 级：无活动 / 低 / 中 / 高 / 极高（按 Token 总量的百分位切分）
+- 位置：晨间焦点面板下方，项目列表上方
+- 悬停显示具体日期和 Token 总量
+- 延续 monochrome 配色：`#0d0d0d` → `#1a3a1a` → `#2a5a2a` → `#3a7a3a` → `#4ade80`
 
 ### 3.6 时间分配比例
 
@@ -444,14 +466,11 @@ ModuleNav 中 `projects` 的 `enabled` 设为 `true`。
 
 ## 5. 与 Usage 模块的关系
 
-**不复制，只关联**：
+**不复制，只引用**：
 - Projects 模块不解析 Token 数据
-- Usage 模块已有完整的 DailyRecord（按日/模型聚合）
+- Token 热力图通过调用 `getUsageData()` 获取已有的 DailyRecord 数据
+- Usage 模块零改动，Projects 只消费其 API
 - 未来 P2 可通过 project_id 维度扩展 Usage，但 P1 不改动 Usage
-
-**P1 中 Token 数据不出现在 Projects 页面**。
-晨间焦点只展示会话数、轮次、标注——这些是 Projects 模块自己的数据。
-Token 相关洞察留在 Usage 模块。
 
 ---
 
