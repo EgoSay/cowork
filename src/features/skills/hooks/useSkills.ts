@@ -60,7 +60,15 @@ export function useSkills() {
   useEffect(() => { scan() }, [scan])
 
   const query = state.search.toLowerCase()
-  const filtered = state.skills.filter((s) => {
+
+  // All 视图: 按 content_hash 去重，每个 skill 只展示一次（中央仓库视角）
+  // 工具视图: 展示该工具目录下的所有 skill（含 symlink 引用）
+  const deduped = state.skills.filter((s, i, arr) =>
+    arr.findIndex((x) => x.content_hash === s.content_hash) === i
+  )
+  const source = state.filter === "all" ? deduped : state.skills
+
+  const filtered = source.filter((s) => {
     if (state.filter !== "all" && s.source_tool !== state.filter) return false
     if (query) return s.name.toLowerCase().includes(query)
     return true
@@ -78,7 +86,7 @@ export function useSkills() {
     skills: filtered,
     allSkills: state.skills,
     toolCounts,
-    totalCount: state.skills.length,
+    totalCount: deduped.length,
     filter: state.filter,
     search: state.search,
     loading: state.loading,

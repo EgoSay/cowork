@@ -85,7 +85,7 @@ export function SkillsPage({ onSelectSkill }: SkillsPageProps) {
           )}
           {syncResult.skipped.length > 0 && (
             <span className="text-warning mr-3">
-              Skipped: {syncResult.skipped.map(([tool, name, reason]) => `${name} (${reason})`).join(", ")}
+              Skipped: {syncResult.skipped.map(([, name, reason]) => `${name} (${reason})`).join(", ")}
             </span>
           )}
           {syncResult.errors.length > 0 && (
