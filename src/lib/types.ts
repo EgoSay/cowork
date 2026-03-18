@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 无外部依赖
- * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, PushResult, ProviderProfile, ProvidersConfig 等类型
+ * [OUTPUT]: 对外提供 Tool, SkillMeta, SkillDetail, EnableResult, MigrateReport, SyncReport, VerifyReport, ProviderProfile, ProvidersConfig 等类型
  * [POS]: 全局 TS 类型，镜像 Rust 后端数据结构
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,12 +33,35 @@ export interface SkillDetail {
   meta: SkillMeta
   content: string
   push_status: PushTarget[]
+  dir_name: string | null
 }
 
 export type PushResult =
   | { success: { path: string } }
   | { already_exists: { path: string } }
   | { error: { message: string } }
+
+export type EnableResult =
+  | { success: { path: string } }
+  | { already_enabled: { path: string } }
+
+export interface MigrateReport {
+  copied: string[]
+  symlinks_updated: [Tool, string][]
+  errors: string[]
+  verified: boolean
+}
+
+export interface SyncReport {
+  imported: [Tool, string][]
+  skipped: [Tool, string, string][]
+  errors: string[]
+}
+
+export interface VerifyReport {
+  ok: [Tool, string][]
+  broken: [Tool, string, string][]
+}
 
 export const TOOL_LABELS: Record<Tool, string> = {
   claude_code: "Claude Code",
