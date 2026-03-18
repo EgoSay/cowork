@@ -136,6 +136,102 @@ pub fn verify(config: &AppConfig) -> Result<VerifyReport, String> {
     Ok(report)
 }
 
+// ── sync ──
+
+/// 扫描各工具目录，找到非 symlink 且含 SKILL.md 的目录 → 复制到 skillshub → 替换为 symlink
+/// 范围限制: 仅处理目录型 skill（含 SKILL.md），不处理 .mdc/.rules 等独立文件格式
+/// 原子顺序: copy → rename .bak → symlink → verify → delete .bak / rollback
+pub fn sync(config: &AppConfig) -> Result<SyncReport, String> {
+    let hub_dir = config.get_skillshub_dir();
+    std::fs::create_dir_all(&hub_dir).map_err(|e| e.to_string())?;
+
+    let mut report = SyncReport {
+        imported: Vec::new(),
+        skipped: Vec::new(),
+        errors: Vec::new(),
+    };
+
+    for tool in &ALL_TOOLS {
+        let tool_dir = match config.get_skills_dir(tool) {
+            Some(d) if d.exists() => d,
+            _ => continue,
+        };
+
+        let entries = match std::fs::read_dir(&tool_dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_symlink() || !path.is_dir() {
+                continue;
+            }
+            if !path.join("SKILL.md").exists() {
+                continue;
+            }
+
+            let name = entry.file_name().to_string_lossy().to_string();
+            let hub_target = hub_dir.join(&name);
+
+            if hub_target.exists() {
+                report.skipped.push((*tool, name, "Already exists in skillshub".into()));
+                continue;
+            }
+
+            let bak_path = path.with_file_name(format!("{}.bak", name));
+
+            if let Err(e) = copy_dir_recursive(&path, &hub_target) {
+                report.errors.push(format!("{}/{}: copy failed: {}", tool, name, e));
+                let _ = std::fs::remove_dir_all(&hub_target);
+                continue;
+            }
+
+            if let Err(e) = std::fs::rename(&path, &bak_path) {
+                report.errors.push(format!("{}/{}: rename to .bak failed: {}", tool, name, e));
+                let _ = std::fs::remove_dir_all(&hub_target);
+                continue;
+            }
+
+            if let Err(e) = std::os::unix::fs::symlink(&hub_target, &path) {
+                let _ = std::fs::rename(&bak_path, &path);
+                let _ = std::fs::remove_dir_all(&hub_target);
+                report.errors.push(format!("{}/{}: symlink failed: {}", tool, name, e));
+                continue;
+            }
+
+            if !path.join("SKILL.md").exists() {
+                let _ = std::fs::remove_file(&path);
+                let _ = std::fs::rename(&bak_path, &path);
+                let _ = std::fs::remove_dir_all(&hub_target);
+                report.errors.push(format!("{}/{}: symlink verification failed", tool, name));
+                continue;
+            }
+
+            let _ = std::fs::remove_dir_all(&bak_path);
+            report.imported.push((*tool, name));
+        }
+    }
+
+    Ok(report)
+}
+
+/// 递归复制目录
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+    for entry in std::fs::read_dir(src).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            std::fs::copy(&src_path, &dst_path).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,5 +388,59 @@ mod tests {
         let config = test_config(&hub, &tool);
         let report = verify(&config).unwrap();
         assert_eq!(report.broken.len(), 1);
+    }
+
+    // ── sync tests ──
+
+    #[test]
+    fn sync_imports_non_symlink_skill() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let tool = tmp.path().join("tool");
+        fs::create_dir_all(&hub).unwrap();
+        fs::create_dir_all(tool.join("new-skill")).unwrap();
+        fs::write(tool.join("new-skill/SKILL.md"), "---\nname: new-skill\n---\n").unwrap();
+
+        let config = test_config(&hub, &tool);
+        let report = sync(&config).unwrap();
+
+        assert_eq!(report.imported.len(), 1);
+        assert_eq!(report.imported[0].1, "new-skill");
+        assert!(tool.join("new-skill").is_symlink());
+        assert!(hub.join("new-skill/SKILL.md").exists());
+    }
+
+    #[test]
+    fn sync_skips_name_collision() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let tool = tmp.path().join("tool");
+        fs::create_dir_all(hub.join("dup")).unwrap();
+        fs::write(hub.join("dup/SKILL.md"), "old").unwrap();
+        fs::create_dir_all(tool.join("dup")).unwrap();
+        fs::write(tool.join("dup/SKILL.md"), "new").unwrap();
+
+        let config = test_config(&hub, &tool);
+        let report = sync(&config).unwrap();
+
+        assert_eq!(report.skipped.len(), 1);
+        assert!(!tool.join("dup").is_symlink());
+    }
+
+    #[test]
+    fn sync_ignores_symlinks() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let tool = tmp.path().join("tool");
+        fs::create_dir_all(hub.join("existing")).unwrap();
+        fs::write(hub.join("existing/SKILL.md"), "content").unwrap();
+        fs::create_dir_all(&tool).unwrap();
+        std::os::unix::fs::symlink(hub.join("existing"), tool.join("existing")).unwrap();
+
+        let config = test_config(&hub, &tool);
+        let report = sync(&config).unwrap();
+
+        assert_eq!(report.imported.len(), 0);
+        assert_eq!(report.skipped.len(), 0);
     }
 }
