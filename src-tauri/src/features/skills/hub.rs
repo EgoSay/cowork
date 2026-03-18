@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 config::AppConfig, types::{Tool, EnableResult, VerifyReport, SyncReport, MigrateReport}
- * [OUTPUT]: 对外提供 enable, disable, delete, migrate, sync, verify, skill_dir_name
+ * [OUTPUT]: 对外提供 enable, disable, delete, migrate, sync, verify, skill_dir_name, ALL_TOOLS
  * [POS]: skills 的中央管理器，通过 symlink 管理 skill 生命周期，取代 pusher
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,7 +20,7 @@ pub fn skill_dir_name(file_path: &Path) -> Option<(PathBuf, String)> {
 }
 
 /// 所有工具枚举（用于遍历）
-const ALL_TOOLS: [Tool; 4] = [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae];
+pub const ALL_TOOLS: [Tool; 4] = [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae];
 
 // ── enable ──
 
@@ -95,12 +95,9 @@ pub fn verify(config: &AppConfig) -> Result<VerifyReport, String> {
 
     for tool in &ALL_TOOLS {
         let tool_dir = match config.get_skills_dir(tool) {
-            Some(d) => d,
-            None => continue,
+            Some(d) if d.exists() => d,
+            _ => continue,
         };
-        if !tool_dir.exists() {
-            continue;
-        }
         let entries = std::fs::read_dir(&tool_dir).map_err(|e| e.to_string())?;
         for entry in entries.flatten() {
             let path = entry.path();
@@ -108,32 +105,31 @@ pub fn verify(config: &AppConfig) -> Result<VerifyReport, String> {
                 continue;
             }
             let name = entry.file_name().to_string_lossy().to_string();
-            match std::fs::read_link(&path) {
-                Ok(target) => {
-                    if !target.exists() {
-                        report.broken.push((*tool, name, "Target does not exist".into()));
-                    } else {
-                        let target_canonical = target.canonicalize()
-                            .unwrap_or_else(|_| target.clone());
-                        if target_canonical.starts_with(&hub_canonical) {
-                            report.ok.push((*tool, name));
-                        } else {
-                            report.broken.push((
-                                *tool,
-                                name,
-                                format!("Target not in skillshub: {}", target.display()),
-                            ));
-                        }
-                    }
-                }
-                Err(e) => {
-                    report.broken.push((*tool, name, format!("Cannot read link: {}", e)));
-                }
+            let reason = check_symlink(&path, &hub_canonical);
+            match reason {
+                None => report.ok.push((*tool, name)),
+                Some(msg) => report.broken.push((*tool, name, msg)),
             }
         }
     }
 
     Ok(report)
+}
+
+/// 检查单个 symlink 健康状态，返回 None 表示正常，Some(reason) 表示异常
+fn check_symlink(path: &Path, hub_canonical: &Path) -> Option<String> {
+    let target = match std::fs::read_link(path) {
+        Ok(t) => t,
+        Err(e) => return Some(format!("Cannot read link: {}", e)),
+    };
+    if !target.exists() {
+        return Some("Target does not exist".into());
+    }
+    let target_canonical = target.canonicalize().unwrap_or_else(|_| target.clone());
+    if !target_canonical.starts_with(hub_canonical) {
+        return Some(format!("Target not in skillshub: {}", target.display()));
+    }
+    None
 }
 
 // ── sync ──
@@ -291,12 +287,12 @@ pub fn migrate(old_path: &Path, new_path: &Path, config: &AppConfig) -> Result<M
             if !target_canonical.starts_with(&old_canonical) {
                 continue;
             }
-            let skill_name = match target_canonical.strip_prefix(&old_canonical) {
-                Ok(rel) => match rel.components().next() {
-                    Some(c) => c.as_os_str().to_string_lossy().to_string(),
-                    None => continue,
-                },
-                Err(_) => continue,
+            let skill_name = match target_canonical.strip_prefix(&old_canonical)
+                .ok()
+                .and_then(|rel| rel.components().next())
+            {
+                Some(c) => c.as_os_str().to_string_lossy().to_string(),
+                None => continue,
             };
             let new_target = new_path.join(&skill_name);
             if std::fs::remove_file(&path).is_ok() {

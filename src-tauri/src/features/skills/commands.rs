@@ -31,13 +31,14 @@ pub async fn get_skill_detail(meta: SkillMeta) -> Result<SkillDetail, String> {
     let config = AppConfig::load();
     let dir_name = hub::skill_dir_name(Path::new(&meta.file_path))
         .map(|(_, name)| name);
-    let push_status = [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae]
+    let push_status = hub::ALL_TOOLS
         .iter()
         .map(|tool| {
             let dir = config.get_skills_dir(tool);
-            let deployed = dir_name.as_ref().map_or(false, |name| {
-                dir.as_ref().map_or(false, |d| d.join(name).symlink_metadata().is_ok())
-            });
+            let deployed = match (&dir_name, &dir) {
+                (Some(name), Some(d)) => d.join(name).symlink_metadata().is_ok(),
+                _ => false,
+            };
             PushTarget {
                 tool: *tool,
                 deployed,
@@ -125,7 +126,7 @@ fn is_within_skills_dirs(path: &Path, config: &AppConfig) -> bool {
         Err(_) => return false,
     };
     let hub_dir = Some(config.get_skillshub_dir());
-    [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae]
+    hub::ALL_TOOLS
         .iter()
         .filter_map(|t| config.get_skills_dir(t))
         .chain(hub_dir)

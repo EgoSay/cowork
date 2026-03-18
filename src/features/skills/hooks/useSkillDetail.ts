@@ -29,20 +29,24 @@ export function useSkillDetail(skill: SkillMeta) {
 
   useEffect(() => { load() }, [load])
 
-  const enable = async (targets: Tool[]): Promise<EnableResult[]> => {
+  const requireDirName = (): string => {
     if (!detail?.dir_name) throw new Error("Cannot resolve skill directory name")
-    return enableSkill(detail.dir_name, targets)
+    return detail.dir_name
+  }
+
+  const enable = async (targets: Tool[]): Promise<EnableResult[]> => {
+    const result = await enableSkill(requireDirName(), targets)
+    await load()
+    return result
   }
 
   const disable = async (targets: Tool[]) => {
-    if (!detail?.dir_name) throw new Error("Cannot resolve skill directory name")
-    await disableSkill(detail.dir_name, targets)
+    await disableSkill(requireDirName(), targets)
     await load()
   }
 
   const remove = async () => {
-    if (!detail?.dir_name) throw new Error("Cannot resolve skill directory name")
-    await deleteSkill(detail.dir_name)
+    await deleteSkill(requireDirName())
   }
 
   const reveal = async () => {

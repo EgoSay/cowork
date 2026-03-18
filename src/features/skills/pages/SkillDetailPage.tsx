@@ -15,7 +15,7 @@ interface SkillDetailPageProps {
 }
 
 export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
-  const { detail, loading, error, enable, disable, remove, reveal, save, reload } = useSkillDetail(skill)
+  const { detail, loading, error, enable, disable, remove, reveal, save } = useSkillDetail(skill)
   const [toggling, setToggling] = useState(false)
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -48,7 +48,6 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
         await disable([tool])
       } else {
         await enable([tool])
-        await reload()
       }
     } finally {
       setToggling(false)
@@ -59,10 +58,7 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
     setToggling(true)
     try {
       const disabled = detail.push_status.filter((t) => !t.deployed).map((t) => t.tool)
-      if (disabled.length > 0) {
-        await enable(disabled)
-        await reload()
-      }
+      if (disabled.length > 0) await enable(disabled)
     } finally {
       setToggling(false)
     }
@@ -72,9 +68,7 @@ export function SkillDetailPage({ skill, onBack }: SkillDetailPageProps) {
     setToggling(true)
     try {
       const enabled = detail.push_status.filter((t) => t.deployed).map((t) => t.tool)
-      if (enabled.length > 0) {
-        await disable(enabled)
-      }
+      if (enabled.length > 0) await disable(enabled)
     } finally {
       setToggling(false)
     }

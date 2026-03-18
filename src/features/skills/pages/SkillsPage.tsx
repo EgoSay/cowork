@@ -93,7 +93,7 @@ export function SkillsPage({ onSelectSkill }: SkillsPageProps) {
               Errors: {syncResult.errors.join(", ")}
             </span>
           )}
-          {syncResult.imported.length === 0 && syncResult.skipped.length === 0 && syncResult.errors.length === 0 && (
+          {syncResult.imported.length + syncResult.skipped.length + syncResult.errors.length === 0 && (
             <span className="text-text-muted">Nothing to sync</span>
           )}
           <button onClick={() => setSyncResult(null)} className="ml-2 text-text-muted hover:text-text">✕</button>
