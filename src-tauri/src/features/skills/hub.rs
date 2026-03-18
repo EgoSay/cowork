@@ -234,6 +234,37 @@ pub fn sync(config: &AppConfig) -> Result<SyncReport, String> {
     Ok(report)
 }
 
+// ── install ──
+
+/// 从任意路径安装 skill 到 skillshub（复制目录）
+pub fn install(source_path: &Path, config: &AppConfig) -> Result<String, String> {
+    if !source_path.exists() {
+        return Err(format!("Source path does not exist: {}", source_path.display()));
+    }
+    if !source_path.is_dir() {
+        return Err("Source must be a directory".into());
+    }
+    if !source_path.join("SKILL.md").exists() {
+        return Err("Directory does not contain SKILL.md".into());
+    }
+
+    let name = source_path.file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Cannot resolve directory name")?
+        .to_string();
+
+    let hub_dir = config.get_skillshub_dir();
+    std::fs::create_dir_all(&hub_dir).map_err(|e| e.to_string())?;
+    let target = hub_dir.join(&name);
+
+    if target.exists() {
+        return Err(format!("'{}' already exists in skillshub", name));
+    }
+
+    copy_dir_recursive(source_path, &target)?;
+    Ok(name)
+}
+
 /// 递归复制目录
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     std::fs::create_dir_all(dst).map_err(|e| e.to_string())?;
@@ -643,5 +674,49 @@ mod tests {
         let config = test_config(&old_hub, &tmp.path().join("tool"));
         let result = migrate(&old_hub, &new_hub, &config);
         assert!(result.is_err());
+    }
+
+    // ── install tests ──
+
+    #[test]
+    fn install_copies_skill_to_hub() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let source = tmp.path().join("external/my-skill");
+        fs::create_dir_all(&hub).unwrap();
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("SKILL.md"), "---\nname: my-skill\n---\n").unwrap();
+
+        let config = test_config(&hub, &tmp.path().join("tool"));
+        let name = install(&source, &config).unwrap();
+
+        assert_eq!(name, "my-skill");
+        assert!(hub.join("my-skill/SKILL.md").exists());
+    }
+
+    #[test]
+    fn install_rejects_without_skill_md() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let source = tmp.path().join("external/bad-dir");
+        fs::create_dir_all(&hub).unwrap();
+        fs::create_dir_all(&source).unwrap();
+
+        let config = test_config(&hub, &tmp.path().join("tool"));
+        assert!(install(&source, &config).is_err());
+    }
+
+    #[test]
+    fn install_rejects_duplicate_name() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let source = tmp.path().join("external/dup");
+        fs::create_dir_all(hub.join("dup")).unwrap();
+        fs::write(hub.join("dup/SKILL.md"), "existing").unwrap();
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("SKILL.md"), "new").unwrap();
+
+        let config = test_config(&hub, &tmp.path().join("tool"));
+        assert!(install(&source, &config).is_err());
     }
 }

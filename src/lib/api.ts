@@ -33,6 +33,10 @@ export async function deleteSkill(skillName: string): Promise<void> {
   return invoke("delete_skill", { skillName })
 }
 
+export async function installSkill(sourcePath: string): Promise<string> {
+  return invoke<string>("install_skill", { sourcePath })
+}
+
 export async function migrateHub(newPath: string): Promise<MigrateReport> {
   return invoke<MigrateReport>("migrate_hub", { newPath })
 }

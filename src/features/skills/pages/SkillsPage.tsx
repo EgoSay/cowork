@@ -9,7 +9,7 @@ import { SkillCard } from "../components/SkillCard"
 import { ToolFilter } from "../components/ToolFilter"
 import { ScanButton } from "../components/ScanButton"
 import { useSkills } from "../hooks/useSkills"
-import { syncSkills, migrateHub, verifySkills } from "@/lib/api"
+import { syncSkills, installSkill, migrateHub, verifySkills } from "@/lib/api"
 import type { SkillMeta, SyncReport, MigrateReport, VerifyReport } from "@/lib/types"
 
 interface SkillsPageProps {
@@ -25,6 +25,7 @@ export function SkillsPage({ onSelectSkill }: SkillsPageProps) {
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<SyncReport | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showInstall, setShowInstall] = useState(false)
 
   const handleSync = async () => {
     setSyncing(true)
@@ -58,6 +59,12 @@ export function SkillsPage({ onSelectSkill }: SkillsPageProps) {
           onChange={(e) => setSearch(e.target.value)}
           className="w-48 px-2.5 py-1.5 rounded-md bg-bg-card border border-border text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text-muted"
         />
+        <button
+          onClick={() => setShowInstall(true)}
+          className="px-3 py-1.5 text-xs text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
+        >
+          Install
+        </button>
         <button
           onClick={handleSync}
           disabled={syncing}
@@ -129,6 +136,10 @@ export function SkillsPage({ onSelectSkill }: SkillsPageProps) {
       {/* Settings 弹窗 */}
       {showSettings && (
         <SettingsModal onClose={() => setShowSettings(false)} />
+      )}
+      {/* Install 弹窗 */}
+      {showInstall && (
+        <InstallModal onClose={() => setShowInstall(false)} onInstalled={rescan} />
       )}
     </div>
   )
@@ -243,6 +254,62 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               )}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Install Modal ──
+
+function InstallModal({ onClose, onInstalled }: { onClose: () => void; onInstalled: () => void }) {
+  const [path, setPath] = useState("")
+  const [installing, setInstalling] = useState(false)
+
+  const handleInstall = async () => {
+    if (!path.trim()) return
+    setInstalling(true)
+    try {
+      const name = await installSkill(path.trim())
+      alert(`Installed "${name}" to SkillsHub`)
+      onInstalled()
+      onClose()
+    } catch (e) {
+      alert(`Install failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setInstalling(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-bg-card border border-border rounded-xl w-[480px] p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-sm font-semibold text-text">Install Skill</h2>
+          <button onClick={onClose} className="text-text-muted hover:text-text text-sm">✕</button>
+        </div>
+
+        <p className="text-xs text-text-muted mb-3">
+          Enter the path to a skill directory (must contain SKILL.md).
+        </p>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleInstall()}
+            placeholder="~/path/to/skill-directory"
+            autoFocus
+            className="flex-1 px-2.5 py-1.5 rounded-md bg-bg border border-border text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text-muted"
+          />
+          <button
+            onClick={handleInstall}
+            disabled={installing || !path.trim()}
+            className="px-3 py-1.5 text-xs text-bg bg-text rounded-md hover:opacity-90 disabled:opacity-50"
+          >
+            {installing ? "Installing..." : "Install"}
+          </button>
         </div>
       </div>
     </div>

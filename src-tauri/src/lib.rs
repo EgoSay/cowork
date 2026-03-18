@@ -28,6 +28,7 @@ pub fn run() {
             commands::get_skill_detail,
             commands::enable_skill,
             commands::disable_skill,
+            commands::install_skill,
             commands::delete_skill,
             commands::migrate_hub,
             commands::sync_skills,

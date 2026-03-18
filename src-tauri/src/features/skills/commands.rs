@@ -72,6 +72,13 @@ pub async fn disable_skill(skill_name: String, targets: Vec<Tool>) -> Result<(),
 }
 
 #[tauri::command]
+pub async fn install_skill(source_path: String) -> Result<String, String> {
+    let config = AppConfig::load();
+    let expanded = crate::shared::fs_utils::expand_tilde(&source_path);
+    hub::install(&expanded, &config)
+}
+
+#[tauri::command]
 pub async fn delete_skill(skill_name: String) -> Result<(), String> {
     let config = AppConfig::load();
     hub::delete(&skill_name, &config)
