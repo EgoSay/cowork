@@ -232,6 +232,105 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
+// ── migrate ──
+
+/// 复制 skillshub 到新路径，重建所有 symlink，校验一致性
+pub fn migrate(old_path: &Path, new_path: &Path, config: &AppConfig) -> Result<MigrateReport, String> {
+    if !old_path.exists() {
+        return Err(format!("Old skillshub path does not exist: {}", old_path.display()));
+    }
+    if new_path.exists() && std::fs::read_dir(new_path).map(|mut d| d.next().is_some()).unwrap_or(false) {
+        return Err(format!("New path already exists and is not empty: {}", new_path.display()));
+    }
+
+    let mut report = MigrateReport {
+        copied: Vec::new(),
+        symlinks_updated: Vec::new(),
+        errors: Vec::new(),
+        verified: false,
+    };
+
+    // 1. 复制所有 skill 目录到新路径
+    std::fs::create_dir_all(new_path).map_err(|e| e.to_string())?;
+    let entries = std::fs::read_dir(old_path).map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
+        let src = entry.path();
+        if !src.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        let dst = new_path.join(&name);
+        match copy_dir_recursive(&src, &dst) {
+            Ok(_) => report.copied.push(name),
+            Err(e) => report.errors.push(format!("Copy {}: {}", name, e)),
+        }
+    }
+
+    // 2. 重建所有 symlink
+    let old_canonical = old_path.canonicalize().unwrap_or_else(|_| old_path.to_path_buf());
+    for tool in &ALL_TOOLS {
+        let tool_dir = match config.get_skills_dir(tool) {
+            Some(d) if d.exists() => d,
+            _ => continue,
+        };
+        let entries = match std::fs::read_dir(&tool_dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_symlink() {
+                continue;
+            }
+            let target = match std::fs::read_link(&path) {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            let target_canonical = target.canonicalize()
+                .unwrap_or_else(|_| target.clone());
+            if !target_canonical.starts_with(&old_canonical) {
+                continue;
+            }
+            let skill_name = match target_canonical.strip_prefix(&old_canonical) {
+                Ok(rel) => match rel.components().next() {
+                    Some(c) => c.as_os_str().to_string_lossy().to_string(),
+                    None => continue,
+                },
+                Err(_) => continue,
+            };
+            let new_target = new_path.join(&skill_name);
+            if std::fs::remove_file(&path).is_ok() {
+                match std::os::unix::fs::symlink(&new_target, &path) {
+                    Ok(_) => report.symlinks_updated.push((*tool, skill_name)),
+                    Err(e) => report.errors.push(format!(
+                        "Symlink {}/{}: {}",
+                        tool,
+                        entry.file_name().to_string_lossy(),
+                        e
+                    )),
+                }
+            }
+        }
+    }
+
+    // 3. 校验
+    let mut verify_config = config.clone();
+    if let Some(hub) = verify_config.tools.get_mut("skillshub") {
+        hub.skills_dir = new_path.to_string_lossy().to_string();
+    }
+    report.verified = match verify(&verify_config) {
+        Ok(v) => v.broken.is_empty(),
+        Err(_) => false,
+    };
+
+    // 校验通过后删除旧目录
+    if report.verified && report.errors.is_empty() {
+        let _ = std::fs::remove_dir_all(old_path);
+    }
+
+    Ok(report)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,5 +541,44 @@ mod tests {
 
         assert_eq!(report.imported.len(), 0);
         assert_eq!(report.skipped.len(), 0);
+    }
+
+    // ── migrate tests ──
+
+    #[test]
+    fn migrate_copies_and_rebuilds_symlinks() {
+        let tmp = TempDir::new().unwrap();
+        let old_hub = tmp.path().join("old-hub");
+        let new_hub = tmp.path().join("new-hub");
+        let tool = tmp.path().join("tool");
+
+        fs::create_dir_all(old_hub.join("skill-a")).unwrap();
+        fs::write(old_hub.join("skill-a/SKILL.md"), "content-a").unwrap();
+        fs::create_dir_all(&tool).unwrap();
+        std::os::unix::fs::symlink(old_hub.join("skill-a"), tool.join("skill-a")).unwrap();
+
+        let config = test_config(&old_hub, &tool);
+        let report = migrate(&old_hub, &new_hub, &config).unwrap();
+
+        assert_eq!(report.copied, vec!["skill-a"]);
+        assert_eq!(report.symlinks_updated.len(), 1);
+        assert!(report.verified);
+        assert!(new_hub.join("skill-a/SKILL.md").exists());
+        let target = fs::read_link(tool.join("skill-a")).unwrap();
+        assert_eq!(target, new_hub.join("skill-a"));
+    }
+
+    #[test]
+    fn migrate_rejects_nonempty_target() {
+        let tmp = TempDir::new().unwrap();
+        let old_hub = tmp.path().join("old");
+        let new_hub = tmp.path().join("new");
+        fs::create_dir_all(old_hub.join("skill")).unwrap();
+        fs::create_dir_all(new_hub.join("something")).unwrap();
+        fs::write(new_hub.join("something/file"), "data").unwrap();
+
+        let config = test_config(&old_hub, &tmp.path().join("tool"));
+        let result = migrate(&old_hub, &new_hub, &config);
+        assert!(result.is_err());
     }
 }
