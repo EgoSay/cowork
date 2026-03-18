@@ -45,7 +45,7 @@ pub async fn get_skill_detail(meta: SkillMeta) -> Result<SkillDetail, String> {
         })
         .collect();
 
-    Ok(SkillDetail { meta, content, push_status })
+    Ok(SkillDetail { meta, content, push_status, dir_name: None })
 }
 
 #[tauri::command]

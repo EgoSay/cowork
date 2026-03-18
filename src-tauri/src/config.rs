@@ -76,6 +76,14 @@ impl AppConfig {
         std::fs::write(&path, content).map_err(|e| e.to_string())
     }
 
+    /// 获取 skillshub 目录路径（展开 ~）
+    pub fn get_skillshub_dir(&self) -> PathBuf {
+        let dir = self.tools.get("skillshub")
+            .map(|t| t.skills_dir.as_str())
+            .unwrap_or("~/.skillshub");
+        expand_tilde(dir)
+    }
+
     /// 获取指定工具的 skills 目录（展开 ~）
     pub fn get_skills_dir(&self, tool: &Tool) -> Option<PathBuf> {
         let key = match tool {
@@ -117,6 +125,14 @@ mod tests {
         assert!(config.get_skills_dir(&Tool::Codex).is_some());
         assert!(config.get_skills_dir(&Tool::Cursor).is_some());
         assert!(config.get_skills_dir(&Tool::Trae).is_some());
+    }
+
+    #[test]
+    fn get_skillshub_dir_expands_tilde() {
+        let config = AppConfig::default();
+        let dir = config.get_skillshub_dir();
+        let home = dirs::home_dir().unwrap();
+        assert_eq!(dir, home.join(".skillshub"));
     }
 
     #[test]

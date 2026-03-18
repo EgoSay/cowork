@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 crate::types 的 Tool, SkillFormat, Status 枚举
- * [OUTPUT]: 对外提供 SkillMeta, SkillDetail, PushTarget, PushResult
- * [POS]: skills 功能的数据类型，被 scanner/commands/pusher 消费
+ * [OUTPUT]: 对外提供 SkillMeta, SkillDetail, PushTarget, PushResult, EnableResult, MigrateReport, SyncReport, VerifyReport
+ * [POS]: skills 功能的数据类型，被 scanner/commands/pusher/hub 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use crate::types::{SkillFormat, Status, Tool};
@@ -26,6 +26,7 @@ pub struct SkillDetail {
     pub meta: SkillMeta,
     pub content: String,
     pub push_status: Vec<PushTarget>,
+    pub dir_name: Option<String>,  // skillshub 目录名，用于 enable/disable/delete
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,4 +42,32 @@ pub enum PushResult {
     Success { path: String },
     AlreadyExists { path: String },
     Error { message: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EnableResult {
+    Success { path: String },
+    AlreadyEnabled { path: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MigrateReport {
+    pub copied: Vec<String>,
+    pub symlinks_updated: Vec<(Tool, String)>,
+    pub errors: Vec<String>,
+    pub verified: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncReport {
+    pub imported: Vec<(Tool, String)>,
+    pub skipped: Vec<(Tool, String, String)>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyReport {
+    pub ok: Vec<(Tool, String)>,
+    pub broken: Vec<(Tool, String, String)>,
 }
