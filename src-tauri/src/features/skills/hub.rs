@@ -4,7 +4,7 @@
  * [POS]: skills 的中央管理器，通过 symlink 管理 skill 生命周期，取代 pusher
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-use super::types::EnableResult;
+use super::types::{EnableResult, MigrateReport, SyncReport, VerifyReport};
 use crate::config::AppConfig;
 use crate::types::Tool;
 use std::path::{Path, PathBuf};
@@ -80,6 +80,60 @@ pub fn delete(skill_dir_name: &str, config: &AppConfig) -> Result<(), String> {
         std::fs::remove_dir_all(&skill_path).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+// ── verify ──
+
+/// 遍历所有工具目录的 symlink，检查指向是否存在且在 skillshub 内
+pub fn verify(config: &AppConfig) -> Result<VerifyReport, String> {
+    let hub_dir = config.get_skillshub_dir();
+    let hub_canonical = hub_dir.canonicalize().unwrap_or_else(|_| hub_dir.clone());
+    let mut report = VerifyReport {
+        ok: Vec::new(),
+        broken: Vec::new(),
+    };
+
+    for tool in &ALL_TOOLS {
+        let tool_dir = match config.get_skills_dir(tool) {
+            Some(d) => d,
+            None => continue,
+        };
+        if !tool_dir.exists() {
+            continue;
+        }
+        let entries = std::fs::read_dir(&tool_dir).map_err(|e| e.to_string())?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_symlink() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            match std::fs::read_link(&path) {
+                Ok(target) => {
+                    if !target.exists() {
+                        report.broken.push((*tool, name, "Target does not exist".into()));
+                    } else {
+                        let target_canonical = target.canonicalize()
+                            .unwrap_or_else(|_| target.clone());
+                        if target_canonical.starts_with(&hub_canonical) {
+                            report.ok.push((*tool, name));
+                        } else {
+                            report.broken.push((
+                                *tool,
+                                name,
+                                format!("Target not in skillshub: {}", target.display()),
+                            ));
+                        }
+                    }
+                }
+                Err(e) => {
+                    report.broken.push((*tool, name, format!("Cannot read link: {}", e)));
+                }
+            }
+        }
+    }
+
+    Ok(report)
 }
 
 #[cfg(test)]
@@ -203,5 +257,40 @@ mod tests {
         delete("my-skill", &config).unwrap();
         assert!(!hub.join("my-skill").exists());
         assert!(!tool.join("my-skill").exists());
+    }
+
+    // ── verify tests ──
+
+    #[test]
+    fn verify_reports_healthy_symlinks() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let tool = tmp.path().join("tool");
+        fs::create_dir_all(hub.join("my-skill")).unwrap();
+        fs::write(hub.join("my-skill/SKILL.md"), "content").unwrap();
+        fs::create_dir_all(&tool).unwrap();
+
+        let config = test_config(&hub, &tool);
+        enable("my-skill", &Tool::ClaudeCode, &config).unwrap();
+
+        let report = verify(&config).unwrap();
+        assert_eq!(report.ok.len(), 1);
+        assert_eq!(report.broken.len(), 0);
+    }
+
+    #[test]
+    fn verify_detects_broken_symlink() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let tool = tmp.path().join("tool");
+        fs::create_dir_all(&hub).unwrap();
+        fs::create_dir_all(&tool).unwrap();
+
+        let ghost = tmp.path().join("ghost");
+        std::os::unix::fs::symlink(&ghost, tool.join("broken")).unwrap();
+
+        let config = test_config(&hub, &tool);
+        let report = verify(&config).unwrap();
+        assert_eq!(report.broken.len(), 1);
     }
 }
