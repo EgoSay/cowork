@@ -36,11 +36,6 @@ export interface SkillDetail {
   dir_name: string | null
 }
 
-export type PushResult =
-  | { success: { path: string } }
-  | { already_exists: { path: string } }
-  | { error: { message: string } }
-
 export type EnableResult =
   | { success: { path: string } }
   | { already_enabled: { path: string } }

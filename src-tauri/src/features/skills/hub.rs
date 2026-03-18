@@ -22,10 +22,19 @@ pub fn skill_dir_name(file_path: &Path) -> Option<(PathBuf, String)> {
 /// 所有工具枚举（用于遍历）
 pub const ALL_TOOLS: [Tool; 4] = [Tool::ClaudeCode, Tool::Codex, Tool::Cursor, Tool::Trae];
 
+/// 校验目录名：禁止路径遍历字符
+fn validate_dir_name(name: &str) -> Result<(), String> {
+    if name.is_empty() || name.contains('/') || name.contains('\\') || name == ".." || name == "." {
+        return Err(format!("Invalid skill directory name: '{}'", name));
+    }
+    Ok(())
+}
+
 // ── enable ──
 
 /// 在 tool 的 skills 目录创建指向 skillshub 的 symlink
 pub fn enable(skill_dir_name: &str, tool: &Tool, config: &AppConfig) -> Result<EnableResult, String> {
+    validate_dir_name(skill_dir_name)?;
     let hub_dir = config.get_skillshub_dir();
     let source = hub_dir.join(skill_dir_name);
     if !source.exists() {
@@ -38,10 +47,21 @@ pub fn enable(skill_dir_name: &str, tool: &Tool, config: &AppConfig) -> Result<E
 
     let link_path = target_dir.join(skill_dir_name);
 
+    // 已存在：检查是否指向正确目标
     if link_path.symlink_metadata().is_ok() {
-        return Ok(EnableResult::AlreadyEnabled {
-            path: link_path.to_string_lossy().to_string(),
-        });
+        if link_path.is_symlink() {
+            if let Ok(target) = std::fs::read_link(&link_path) {
+                if target == source {
+                    return Ok(EnableResult::AlreadyEnabled {
+                        path: link_path.to_string_lossy().to_string(),
+                    });
+                }
+            }
+            // 断链或指向错误目标 → 删除后重建
+            std::fs::remove_file(&link_path).map_err(|e| e.to_string())?;
+        } else {
+            return Err(format!("A non-symlink entry already exists at {}", link_path.display()));
+        }
     }
 
     std::os::unix::fs::symlink(&source, &link_path)
@@ -56,6 +76,7 @@ pub fn enable(skill_dir_name: &str, tool: &Tool, config: &AppConfig) -> Result<E
 
 /// 删除 tool 目录里的 symlink（skill 仍在 skillshub）
 pub fn disable(skill_dir_name: &str, tool: &Tool, config: &AppConfig) -> Result<(), String> {
+    validate_dir_name(skill_dir_name)?;
     let target_dir = config.get_skills_dir(tool)
         .ok_or_else(|| format!("No skills directory configured for {}", tool))?;
     let link_path = target_dir.join(skill_dir_name);
@@ -70,6 +91,7 @@ pub fn disable(skill_dir_name: &str, tool: &Tool, config: &AppConfig) -> Result<
 
 /// 从 skillshub 删除 skill 目录 + 清理所有工具里指向它的 symlink
 pub fn delete(skill_dir_name: &str, config: &AppConfig) -> Result<(), String> {
+    validate_dir_name(skill_dir_name)?;
     for tool in &ALL_TOOLS {
         let _ = disable(skill_dir_name, tool, config);
     }
@@ -294,6 +316,10 @@ pub fn migrate(old_path: &Path, new_path: &Path, config: &AppConfig) -> Result<M
                 Some(c) => c.as_os_str().to_string_lossy().to_string(),
                 None => continue,
             };
+            // 只重建成功复制的 skill 的 symlink
+            if !report.copied.contains(&skill_name) {
+                continue;
+            }
             let new_target = new_path.join(&skill_name);
             if std::fs::remove_file(&path).is_ok() {
                 match std::os::unix::fs::symlink(&new_target, &path) {
@@ -562,6 +588,47 @@ mod tests {
         assert!(new_hub.join("skill-a/SKILL.md").exists());
         let target = fs::read_link(tool.join("skill-a")).unwrap();
         assert_eq!(target, new_hub.join("skill-a"));
+    }
+
+    // ── validate_dir_name tests ──
+
+    #[test]
+    fn validate_rejects_path_traversal() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let tool = tmp.path().join("tool");
+        fs::create_dir_all(&hub).unwrap();
+        fs::create_dir_all(&tool).unwrap();
+        let config = test_config(&hub, &tool);
+
+        assert!(enable("../etc", &Tool::ClaudeCode, &config).is_err());
+        assert!(enable("foo/bar", &Tool::ClaudeCode, &config).is_err());
+        assert!(enable("..", &Tool::ClaudeCode, &config).is_err());
+        assert!(enable(".", &Tool::ClaudeCode, &config).is_err());
+        assert!(enable("", &Tool::ClaudeCode, &config).is_err());
+        assert!(disable("../etc", &Tool::ClaudeCode, &config).is_err());
+        assert!(delete("../etc", &config).is_err());
+    }
+
+    #[test]
+    fn enable_repairs_broken_symlink() {
+        let tmp = TempDir::new().unwrap();
+        let hub = tmp.path().join("hub");
+        let tool = tmp.path().join("tool");
+        fs::create_dir_all(hub.join("my-skill")).unwrap();
+        fs::write(hub.join("my-skill/SKILL.md"), "content").unwrap();
+        fs::create_dir_all(&tool).unwrap();
+
+        // 创建指向不存在目标的 symlink
+        let ghost = tmp.path().join("ghost");
+        std::os::unix::fs::symlink(&ghost, tool.join("my-skill")).unwrap();
+
+        let config = test_config(&hub, &tool);
+        let result = enable("my-skill", &Tool::ClaudeCode, &config).unwrap();
+        assert!(matches!(result, EnableResult::Success { .. }));
+        // symlink 现在指向正确的 hub 目录
+        let target = fs::read_link(tool.join("my-skill")).unwrap();
+        assert_eq!(target, hub.join("my-skill"));
     }
 
     #[test]

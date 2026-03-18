@@ -1,6 +1,6 @@
 # CoWork
 
-AI 编码工具的 Skills 指挥中心。统一扫描、浏览、推送 Claude Code / Codex / Cursor / Trae 四大工具的 Skills。
+AI 编码工具的 Skills 指挥中心。统一扫描、管理 Claude Code / Codex / Cursor / Trae 四大工具的 Skills。
 
 ## 技术栈
 
@@ -11,7 +11,9 @@ Rust + Tauri 2 + React 18 + TypeScript + Tailwind v4
 - **统一扫描** — 自动发现四个 AI 编码工具的 Skills 文件（SKILL.md / AGENTS.md / .mdc 等）
 - **内容去重** — 基于 SHA-256 哈希，相同内容只保留一份
 - **详情预览** — 查看 Skill 元信息、来源工具、完整内容
-- **跨工具推送** — 将 Skill 从一个工具复制到另一个工具（文件复制，非软链接）
+- **跨工具启用** — 通过 symlink 在多个工具间启用/禁用 Skill，中央仓库统一管理
+- **同步导入** — 扫描工具目录中的独立 Skill，自动导入中央仓库
+- **路径迁移** — 自定义 SkillsHub 路径，迁移时自动重建 symlink 并校验一致性
 - **纯文件系统** — 无数据库，原格式存储，内存索引
 
 ## 支持的工具
@@ -84,7 +86,7 @@ src/                          # React 前端
 src-tauri/src/                # Rust 后端
 ├── features/skills/
 │   ├── scanner/              # 四工具扫描器 (Scanner trait)
-│   ├── pusher/               # 跨工具推送
+│   ├── hub.rs                # Hub Manager (enable/disable/delete/migrate/sync/verify)
 │   └── commands/             # Tauri 命令层
 └── shared/                   # 公共工具 (fs_utils)
 ```

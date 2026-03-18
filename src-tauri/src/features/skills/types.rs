@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 crate::types 的 Tool, SkillFormat, Status 枚举
- * [OUTPUT]: 对外提供 SkillMeta, SkillDetail, PushTarget, PushResult, EnableResult, MigrateReport, SyncReport, VerifyReport
- * [POS]: skills 功能的数据类型，被 scanner/commands/pusher/hub 消费
+ * [OUTPUT]: 对外提供 SkillMeta, SkillDetail, PushTarget, EnableResult, MigrateReport, SyncReport, VerifyReport
+ * [POS]: skills 功能的数据类型，被 scanner/commands/hub 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 use crate::types::{SkillFormat, Status, Tool};
@@ -34,14 +34,6 @@ pub struct PushTarget {
     pub tool: Tool,
     pub deployed: bool,
     pub target_path: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PushResult {
-    Success { path: String },
-    AlreadyExists { path: String },
-    Error { message: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
