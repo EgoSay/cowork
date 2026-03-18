@@ -100,8 +100,8 @@ export function SkillsPage({ onSelectSkill }: SkillsPageProps) {
         </div>
       )}
 
-      {/* 卡片网格 */}
-      <div className="flex-1 overflow-auto p-4 will-change-transform">
+      {/* 卡片网格 — key 强制 WebKit 合成器重绘 */}
+      <div key={`${filter}-${search}`} className="flex-1 overflow-auto p-4">
         {error && (
           <div className="text-danger text-xs mb-4">Error: {error}</div>
         )}
