@@ -203,11 +203,20 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               className="flex-1 px-2.5 py-1.5 rounded-md bg-bg border border-border text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text-muted"
             />
             <button
+              onClick={async () => {
+                const selected = await open({ directory: true, title: "Select new SkillsHub directory" })
+                if (selected) setHubPath(selected)
+              }}
+              className="px-3 py-1.5 text-xs text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
+            >
+              Browse
+            </button>
+            <button
               onClick={handleMigrate}
               disabled={migrating || !hubPath.trim()}
               className="px-3 py-1.5 text-xs text-bg bg-text rounded-md hover:opacity-90 disabled:opacity-50"
             >
-              {migrating ? "Migrating..." : "Migrate"}
+              {migrating ? "..." : "Migrate"}
             </button>
           </div>
         </div>
