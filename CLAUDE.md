@@ -11,8 +11,9 @@ src/features/projects/ - 进化引擎 P1: 项目浏览器+会话标注+晨间焦
 src/lib/ - 全局类型 (types.ts) + Tauri IPC 封装 (api.ts)
 src-tauri/ - Rust 后端 (1子目录: src)
 src-tauri/src/ - Rust 源码入口
-src-tauri/src/features/skills/ - Skills 扫描/推送/命令 (3子目录: scanner, pusher, commands)
+src-tauri/src/features/skills/ - Skills 扫描/管理/命令 (3子目录: scanner, hub, commands)
 src-tauri/src/features/skills/scanner/ - 四工具扫描器: claude_code, codex, cursor, trae
+src-tauri/src/features/skills/hub.rs - Hub Manager: enable/disable/delete/migrate/sync/verify/install
 src-tauri/src/features/usage/ - Usage 数据聚合 (1子目录: parser)
 src-tauri/src/features/usage/parser/ - 双工具 session JSONL 解析器: claude_code, codex
 src-tauri/src/features/providers/ - 供应商后端: types, store, writer, commands
@@ -31,7 +32,9 @@ src-tauri/tauri.conf.json - Tauri 窗口配置, macOS Overlay 标题栏
 ## 架构决策
 - 纯文件系统 + 内存索引，无数据库
 - 原格式存储，不做 Skills 格式转换
-- 符号链接推送：~/.skillshub/ 为中心，各工具 skills 目录通过 symlink 引用
+- Hub Manager 统一管理：~/.skillshub/ 为中心，enable/disable 通过 symlink 创建/删除
+- skillshub 路径可配置，迁移时自动复制 + 重建 symlink + 一致性校验
+- Sync 功能：工具目录的非 symlink skill 自动导入 skillshub
 - Monochrome 配色: #0a0a0a bg, #141414 card, #fafafa text
 - features/ 模块化目录（前后端对称）
 - Scanner trait 模式扫描四个工具

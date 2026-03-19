@@ -13,8 +13,6 @@ use std::path::Path;
 pub struct TraeScanner;
 
 impl ToolScanner for TraeScanner {
-    fn tool() -> Tool { Tool::Trae }
-
     fn scan(dir: &Path, patterns: &[String]) -> Vec<SkillMeta> {
         let mut results = Vec::new();
 

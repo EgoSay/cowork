@@ -16,7 +16,6 @@ use std::path::Path;
 
 /// 各工具扫描器的统一接口
 pub trait ToolScanner {
-    fn tool() -> Tool;
     fn scan(dir: &Path, patterns: &[String]) -> Vec<SkillMeta>;
 }
 

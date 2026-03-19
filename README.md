@@ -13,7 +13,9 @@ Rust + Tauri 2 + React 18 + TypeScript + Tailwind v4
 - **统一扫描** — 自动发现四个 AI 编码工具的 Skills 文件（SKILL.md / AGENTS.md / .mdc 等）
 - **内容去重** — 基于 SHA-256 哈希，相同内容只保留一份
 - **详情预览** — 查看 Skill 元信息、来源工具、完整内容
-- **跨工具推送** — 将 Skill 通过 symlink 同步到其他工具（`~/.skillshub/` 为中心）
+- **跨工具启用** — 通过 symlink 在多个工具间启用/禁用 Skill，中央仓库统一管理
+- **同步导入** — 扫描工具目录中的独立 Skill，自动导入中央仓库
+- **路径迁移** — 自定义 SkillsHub 路径，迁移时自动重建 symlink 并校验一致性
 
 ### Usage 用量监控
 
@@ -94,7 +96,7 @@ scan_patterns = ["*.md"]
 src/                              # React 前端
 ├── components/layout/            # AppShell, TitleBar, ModuleNav
 ├── features/
-│   ├── skills/                   # Skills 扫描 + 推送
+│   ├── skills/                   # Skills 管理 (Hub Manager)
 │   ├── usage/                    # 用量监控仪表盘
 │   └── providers/                # 供应商管理
 └── lib/                          # 类型定义 + Tauri IPC 封装
@@ -103,7 +105,7 @@ src-tauri/src/                    # Rust 后端
 ├── features/
 │   ├── skills/
 │   │   ├── scanner/              # 四工具扫描器 (Scanner trait)
-│   │   └── pusher/               # symlink 推送
+│   │   └── hub.rs                # Hub Manager (enable/disable/delete/migrate/sync/verify/install)
 │   ├── usage/
 │   │   └── parser/               # Claude Code + Codex JSONL 解析
 │   └── providers/                # 供应商 CRUD + settings.json 写入

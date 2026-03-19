@@ -14,9 +14,9 @@ export function ScanButton({ loading, onClick }: ScanButtonProps) {
     <button
       onClick={onClick}
       disabled={loading}
-      className="px-3 py-1.5 rounded-md bg-text text-bg text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+      className="px-3 py-1.5 text-xs text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors disabled:opacity-50"
     >
-      {loading ? "Scanning..." : "Scan All"}
+      {loading ? "Scanning..." : "Scan"}
     </button>
   )
 }

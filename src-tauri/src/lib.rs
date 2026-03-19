@@ -26,16 +26,20 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(ProviderLock(Mutex::new(())))
         .manage(ProjectsLock(Mutex::new(())))
         .invoke_handler(tauri::generate_handler![
             commands::scan_all_tools,
             commands::scan_tool,
             commands::get_skill_detail,
-            commands::push_skill,
-            commands::disable_skill,
             commands::enable_skill,
+            commands::disable_skill,
+            commands::install_skill,
             commands::delete_skill,
+            commands::migrate_hub,
+            commands::sync_skills,
+            commands::verify_skills,
             commands::reveal_in_finder,
             commands::save_skill_content,
             commands::get_tool_configs,

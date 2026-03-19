@@ -25,6 +25,7 @@ toml = "0.8"
 sha2 = "0.10"
 glob = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
+tauri-plugin-dialog = "2.6.0"
 
 [dev-dependencies]
 tempfile = "3"

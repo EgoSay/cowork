@@ -11,8 +11,6 @@ use std::path::Path;
 pub struct CursorScanner;
 
 impl ToolScanner for CursorScanner {
-    fn tool() -> Tool { Tool::Cursor }
-
     fn scan(dir: &Path, _patterns: &[String]) -> Vec<SkillMeta> {
         let mut results = Vec::new();
 

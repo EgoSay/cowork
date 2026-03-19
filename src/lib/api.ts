@@ -1,11 +1,11 @@
 /**
  * [INPUT]: 依赖 @tauri-apps/api/core 的 invoke, ./types
- * [OUTPUT]: 对外提供所有 Tauri IPC 封装函数，包括 scanProjects, getSessionMessages, resumeSession, annotateSession, getAnnotations, removeAnnotation
+ * [OUTPUT]: 对外提供所有 Tauri IPC 封装函数，包括 enableSkill, disableSkill, installSkill, deleteSkill, migrateHub, syncSkills, verifySkills, scanProjects, getSessionMessages, resumeSession, annotateSession, getAnnotations, removeAnnotation
  * [POS]: 前端 API 层，类型安全的 invoke 封装
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { invoke } from "@tauri-apps/api/core"
-import type { SkillMeta, SkillDetail, PushResult, Tool, UsageData, ProvidersConfig, ProjectData, SessionMessage, SessionAnnotation } from "./types"
+import type { SkillMeta, SkillDetail, EnableResult, MigrateReport, SyncReport, VerifyReport, Tool, UsageData, ProvidersConfig, ProjectData, SessionMessage, SessionAnnotation } from "./types"
 
 export async function scanAllTools(): Promise<SkillMeta[]> {
   return invoke<SkillMeta[]>("scan_all_tools")
@@ -21,23 +21,32 @@ export async function getSkillDetail(
   return invoke<SkillDetail>("get_skill_detail", { meta })
 }
 
-export async function pushSkill(
-  filePath: string,
-  targets: Tool[]
-): Promise<PushResult[]> {
-  return invoke<PushResult[]>("push_skill", { filePath, targets })
+export async function enableSkill(skillName: string, targets: Tool[]): Promise<EnableResult[]> {
+  return invoke<EnableResult[]>("enable_skill", { skillName, targets })
 }
 
-export async function disableSkill(filePath: string): Promise<void> {
-  return invoke("disable_skill", { filePath })
+export async function disableSkill(skillName: string, targets: Tool[]): Promise<void> {
+  return invoke("disable_skill", { skillName, targets })
 }
 
-export async function enableSkill(filePath: string): Promise<void> {
-  return invoke("enable_skill", { filePath })
+export async function deleteSkill(skillName: string): Promise<void> {
+  return invoke("delete_skill", { skillName })
 }
 
-export async function deleteSkill(filePath: string): Promise<void> {
-  return invoke("delete_skill", { filePath })
+export async function installSkill(sourcePath: string): Promise<string> {
+  return invoke<string>("install_skill", { sourcePath })
+}
+
+export async function migrateHub(newPath: string): Promise<MigrateReport> {
+  return invoke<MigrateReport>("migrate_hub", { newPath })
+}
+
+export async function syncSkills(): Promise<SyncReport> {
+  return invoke<SyncReport>("sync_skills")
+}
+
+export async function verifySkills(): Promise<VerifyReport> {
+  return invoke<VerifyReport>("verify_skills")
 }
 
 export async function revealInFinder(path: string): Promise<void> {
