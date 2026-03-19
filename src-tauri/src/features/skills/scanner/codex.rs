@@ -13,8 +13,6 @@ use std::path::Path;
 pub struct CodexScanner;
 
 impl ToolScanner for CodexScanner {
-    fn tool() -> Tool { Tool::Codex }
-
     fn scan(dir: &Path, _patterns: &[String]) -> Vec<SkillMeta> {
         let mut results = Vec::new();
 

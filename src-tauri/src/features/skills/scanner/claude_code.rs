@@ -13,8 +13,6 @@ use std::path::Path;
 pub struct ClaudeCodeScanner;
 
 impl ToolScanner for ClaudeCodeScanner {
-    fn tool() -> Tool { Tool::ClaudeCode }
-
     fn scan(dir: &Path, _patterns: &[String]) -> Vec<SkillMeta> {
         super::scan_skill_dirs(dir, Tool::ClaudeCode)
     }
