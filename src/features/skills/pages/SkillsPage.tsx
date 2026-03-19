@@ -10,6 +10,7 @@ import { ToolFilter } from "../components/ToolFilter"
 import { ScanButton } from "../components/ScanButton"
 import { useSkills } from "../hooks/useSkills"
 import { syncSkills, installSkill, migrateHub, verifySkills } from "@/lib/api"
+import { open } from "@tauri-apps/plugin-dialog"
 import type { SkillMeta, SyncReport, MigrateReport, VerifyReport } from "@/lib/types"
 
 interface SkillsPageProps {
@@ -75,10 +76,10 @@ export function SkillsPage({ onSelectSkill }: SkillsPageProps) {
         <ScanButton loading={loading} onClick={rescan} />
         <button
           onClick={() => setShowSettings(true)}
-          className="px-2 py-1.5 text-xs text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
+          className="px-3 py-1.5 text-xs text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
           title="Settings"
         >
-          ⚙
+          Settings
         </button>
       </div>
 
@@ -266,6 +267,11 @@ function InstallModal({ onClose, onInstalled }: { onClose: () => void; onInstall
   const [path, setPath] = useState("")
   const [installing, setInstalling] = useState(false)
 
+  const handleBrowse = async () => {
+    const selected = await open({ directory: true, title: "Select skill directory" })
+    if (selected) setPath(selected)
+  }
+
   const handleInstall = async () => {
     if (!path.trim()) return
     setInstalling(true)
@@ -290,7 +296,7 @@ function InstallModal({ onClose, onInstalled }: { onClose: () => void; onInstall
         </div>
 
         <p className="text-xs text-text-muted mb-3">
-          Enter the path to a skill directory (must contain SKILL.md).
+          Select a skill directory (must contain SKILL.md).
         </p>
 
         <div className="flex gap-2">
@@ -300,15 +306,20 @@ function InstallModal({ onClose, onInstalled }: { onClose: () => void; onInstall
             onChange={(e) => setPath(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleInstall()}
             placeholder="~/path/to/skill-directory"
-            autoFocus
             className="flex-1 px-2.5 py-1.5 rounded-md bg-bg border border-border text-xs text-text placeholder:text-text-muted focus:outline-none focus:border-text-muted"
           />
+          <button
+            onClick={handleBrowse}
+            className="px-3 py-1.5 text-xs text-text-secondary border border-border rounded-md hover:text-text hover:border-text/30 transition-colors"
+          >
+            Browse
+          </button>
           <button
             onClick={handleInstall}
             disabled={installing || !path.trim()}
             className="px-3 py-1.5 text-xs text-bg bg-text rounded-md hover:opacity-90 disabled:opacity-50"
           >
-            {installing ? "Installing..." : "Install"}
+            {installing ? "..." : "Install"}
           </button>
         </div>
       </div>
